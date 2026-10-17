@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Build output (the exe is published as a GitHub release, not committed)
+build/
+dist/
+*.spec
+
+# Your data. ProxyHive writes these next to the program; they must never be committed
+settings.json
+pool.json
+dead_cache.json
+history.json
+custom_proxies.txt
+results/
+data/
+proxyhive.log
+.system_proxy_backup.json
+GeoLite*.mmdb
+dbip*.mmdb
+*.mmdb
+
+# Local tooling
+.claude/
+.vscode/
+.idea/

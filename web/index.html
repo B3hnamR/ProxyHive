@@ -1,0 +1,1703 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProxyHive</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%201024%201024%22%3E%3Crect%20x=%2224%22%20y=%2224%22%20width=%22976%22%20height=%22976%22%20rx=%22230%22%20fill=%22%230c1424%22/%3E%3Cpolygon%20points=%22512,166%20360,254%20360,430%20512,518%20664,430%20664,254%22%20fill=%22%235eead4%22/%3E%3Cpolygon%20points=%22349,448%20196,536%20196,712%20349,800%20501,712%20501,536%22%20fill=%22%2338bdf8%22/%3E%3Cpolygon%20points=%22675,448%20523,536%20523,712%20675,800%20828,712%20828,536%22%20fill=%22%237c9cff%22/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #090c12; --panel: #10151f; --panel-2: #151b28; --line: #1f2838; --text: #e7edf6; --muted: #8693a8;
+  --accent: #5eead4; --accent-2: #7c9cff; --good: #4ade80; --warn: #fbbf24; --slow: #fb923c; --bad: #f87171;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 14px; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { margin: 0; min-height: 100vh; color: var(--text); font: 14px/1.45 var(--sans);
+  background: radial-gradient(900px 420px at 12% -8%, rgba(94,234,212,.10), transparent 70%),
+              radial-gradient(800px 380px at 92% -4%, rgba(124,156,255,.10), transparent 70%), var(--bg);
+  background-attachment: fixed; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--mono); }
+.wrap { max-width: 1400px; margin: 0 auto; padding: 20px 16px 48px; }
+
+/* header */
+header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+.radar { width: 38px; height: 38px; position: relative; border-radius: 50%; border: 2px solid var(--accent);
+  box-shadow: 0 0 18px rgba(94,234,212,.35), inset 0 0 12px rgba(94,234,212,.2); overflow: hidden; flex: none; }
+.radar::before { content: ""; position: absolute; inset: 7px; border: 1px solid rgba(94,234,212,.5); border-radius: 50%; }
+.radar::after { content: ""; position: absolute; inset: 0; background: conic-gradient(from 0deg, rgba(94,234,212,.75), rgba(94,234,212,0) 38%); animation: sweep 2.6s linear infinite; }
+.idle .radar::after, .finished .radar::after { animation-play-state: paused; opacity: .35; }
+@keyframes sweep { to { transform: rotate(360deg); } }
+h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: 12.5px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.running .pill .dot { background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+.finished .pill .dot { background: var(--good); }
+.errored .pill .dot { background: var(--bad); }
+@keyframes pulse { 50% { opacity: .35; } }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); background: var(--panel-2); padding: 9px 16px; border-radius: 10px; font-weight: 600; text-decoration: none; color: var(--text);
+  transition: transform .12s ease, background .15s, border-color .15s; }
+.btn:hover { border-color: #33415a; }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: linear-gradient(135deg, var(--accent), #38bdf8); color: #04201c; border-color: transparent; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { background: rgba(248,113,113,.14); border-color: rgba(248,113,113,.5); color: #fecaca; }
+.btn.small { padding: 6px 11px; font-size: 12.5px; font-weight: 500; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* gateway bar + notice */
+.gwbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; margin-bottom: 12px; border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(94,234,212,.12), rgba(124,156,255,.10)); border: 1px solid rgba(94,234,212,.45); box-shadow: 0 8px 30px -14px rgba(94,234,212,.5); }
+.gwbar .main-info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; flex: 1 1 420px; min-width: 0; }
+.gwbar .ttl { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.gwbar .meta { color: var(--muted); font-size: 12.5px; font-family: var(--mono); }
+.gwbar .res { flex-basis: 100%; font-size: 13px; }
+.gwbar .ok { color: var(--good); } .gwbar .no { color: var(--bad); }
+.notice { margin-bottom: 12px; padding: 10px 14px; border-radius: 10px; background: rgba(251,191,36,.10); border: 1px solid rgba(251,191,36,.35); color: #fde68a; font-size: 13px; }
+.notice.good { background: rgba(74,222,128,.09); border-color: rgba(74,222,128,.3); color: #bbf7d0; }
+
+/* pipeline + kpis */
+.pipeline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; transition: border-color .25s, box-shadow .25s; }
+.stage.active { border-color: rgba(94,234,212,.55); box-shadow: 0 0 0 1px rgba(94,234,212,.15), 0 8px 30px -12px rgba(94,234,212,.35); }
+.stage.done { border-color: rgba(74,222,128,.28); }
+.stage-head { display: flex; align-items: center; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.stage-head .n { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; font-size: 11px; margin-right: 8px; }
+.stage.active .n { background: var(--accent); color: #04201c; border-color: var(--accent); }
+.stage.done .n { background: rgba(74,222,128,.2); color: var(--good); border-color: transparent; }
+.stage-val { font-size: 28px; font-weight: 700; margin: 8px 0 2px; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.stage-sub { color: var(--muted); font-size: 12.5px; min-height: 18px; font-variant-numeric: tabular-nums; }
+.bar { height: 6px; border-radius: 99px; background: #0b1019; margin-top: 12px; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--accent-2), var(--accent)); transition: width .3s ease; }
+.stage.active .bar > i { background-image: linear-gradient(90deg, var(--accent-2), var(--accent)), repeating-linear-gradient(45deg, rgba(255,255,255,.18) 0 8px, transparent 8px 16px);
+  background-blend-mode: overlay; background-size: 100% 100%, 32px 32px; animation: slide 1s linear infinite; }
+.stage.done .bar > i { background: var(--good); }
+@keyframes slide { to { background-position: 0 0, 32px 0; } }
+.kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.kpi span { display: block; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; }
+.kpi b { display: block; font-size: 21px; margin-top: 2px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.kpi.hero b { color: var(--accent); }
+
+/* layout */
+.main { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 16px; align-items: start; }
+.side { display: grid; gap: 12px; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; padding-right: 2px; scrollbar-width: thin; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); min-width: 0; }
+.card > h2 { font-size: 12px; margin: 0; padding: 13px 16px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); font-weight: 600; }
+.pad { padding: 14px 16px; }
+
+/* settings accordion */
+details.sec { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+details.sec > summary { list-style: none; padding: 12px 16px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary::after { content: "+"; font-size: 16px; line-height: 1; transition: transform .2s; }
+details.sec[open] > summary { border-bottom: 1px solid var(--line); color: var(--text); }
+details.sec[open] > summary::after { content: "−"; }
+fieldset { border: 0; padding: 14px 16px; margin: 0; min-width: 0; }
+fieldset[disabled] { opacity: .5; }
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.field > label, .lbl { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12.5px; margin-bottom: 6px; }
+.lbl b, .field > label b { color: var(--text); font-family: var(--mono); font-weight: 500; }
+.field > label.switch { justify-content: flex-start; margin-bottom: 0; color: var(--text); font-size: 13px; }
+.hint { color: var(--muted); font-size: 11.5px; margin-top: 4px; opacity: .85; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: transparent; font-size: 12.5px; color: var(--muted); transition: all .15s; user-select: none; }
+.chip:hover { border-color: #33415a; }
+.chip[aria-pressed="true"] { background: rgba(94,234,212,.12); border-color: rgba(94,234,212,.55); color: var(--accent); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=number], input[type=search], input[type=text], input[type=password], select, textarea { width: 100%; background: #0b1019; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; }
+textarea { resize: vertical; font-family: var(--mono); font-size: 12px; }
+select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 28px; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; }
+input::placeholder, textarea::placeholder { color: #5b6a82; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.two .field { margin: 0; }
+.switch { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; }
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.switch .sl { width: 34px; height: 20px; border-radius: 99px; background: #0b1019; border: 1px solid var(--line); position: relative; transition: background .2s, border-color .2s; flex: none; }
+.switch .sl::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform .2s, background .2s; }
+.switch input:checked + .sl { background: rgba(94,234,212,.2); border-color: rgba(94,234,212,.6); }
+.switch input:checked + .sl::after { transform: translateX(14px); background: var(--accent); }
+.switch input:focus-visible + .sl { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* themed dropdown (replaces the browser's own select popup) */
+.dd { position: relative; display: block; }
+.toolbar .dd { display: inline-block; }
+.dd-btn { all: unset; box-sizing: border-box; width: 100%; min-width: 130px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer;
+  background: #0b1019; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; color: var(--text); font: inherit; transition: border-color .15s, box-shadow .15s; }
+.dd-btn:hover { border-color: #33415a; }
+.dd-btn:focus-visible, .dd.open .dd-btn { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(94,234,212,.12); }
+.dd-btn:disabled { opacity: .5; cursor: not-allowed; }
+.dd-btn .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-btn::after { content: ""; flex: none; width: 7px; height: 7px; margin: -3px 2px 0 0; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .2s, border-color .2s; }
+.dd.open .dd-btn::after { transform: rotate(225deg); margin-top: 3px; border-color: var(--accent); }
+.dd-list { position: fixed; z-index: 60; overflow: auto; padding: 5px; margin: 0; list-style: none; background: var(--panel-2); border: 1px solid #2a364b; border-radius: 12px;
+  box-shadow: 0 18px 50px -12px rgba(0,0,0,.75), 0 0 0 1px rgba(94,234,212,.05); scrollbar-width: thin; animation: ddin .12s ease-out; }
+@keyframes ddin { from { opacity: 0; transform: translateY(-4px); } }
+.dd-opt { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text); }
+.dd-opt.active { background: rgba(94,234,212,.12); }
+.dd-opt[aria-selected=true] { color: var(--accent); font-weight: 600; }
+.dd-opt[aria-selected=true]::after { content: "\2713"; font-weight: 700; }
+
+/* import */
+.imp { border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); padding: 14px; margin-bottom: 18px; }
+.imp textarea { min-height: 110px; }
+.imp textarea.drag { border-color: var(--accent); background: rgba(94,234,212,.06); }
+.imp-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.imp-opt { display: flex; align-items: center; gap: 8px; margin-right: auto; color: var(--muted); font-size: 12.5px; }
+.imp-opt .dd-btn { min-width: 170px; }
+.imp-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.imp-file { display: inline-flex; align-items: center; gap: 8px; padding: 3px 4px 3px 10px; border-radius: 99px; border: 1px solid var(--line); background: #0b1019; font-size: 12px; }
+.imp-file button { all: unset; cursor: pointer; width: 18px; height: 18px; text-align: center; border-radius: 50%; color: var(--muted); }
+.imp-file button:hover { background: rgba(248,113,113,.15); color: var(--bad); }
+
+/* site check */
+.tg-hero label { display: block; font-weight: 600; font-size: 15px; margin-bottom: 8px; }
+.tg-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.tg-row input { flex: 1 1 320px; font-size: 15px; padding: 11px 12px; }
+.tg-row .btn { padding: 11px 20px; font-size: 14px; }
+.tg-step { margin: 18px 0 8px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }
+.seg.wide { display: flex; flex-wrap: wrap; border-radius: 12px; }
+.seg.wide button { border-radius: 10px; padding: 8px 14px; font-size: 13px; flex: 1 1 auto; text-align: center; }
+.seg.wide button[disabled] { opacity: .4; cursor: not-allowed; }
+.seg small { font-family: var(--mono); opacity: .85; margin-left: 4px; }
+.tg-adv { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.tg-adv > summary { list-style: none; cursor: pointer; padding: 10px 14px; color: var(--muted); font-size: 13px; }
+.tg-adv > summary::-webkit-details-marker { display: none; }
+.tg-adv > summary::before { content: "+  "; color: var(--accent); }
+.tg-adv[open] > summary::before { content: "\2212  "; }
+.tg-adv .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 4px 14px 14px; }
+.tg-adv .grid .field { margin: 0; }
+.tg-run { margin-top: 18px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.tg-stat { margin-top: 10px; font-size: 14px; }
+.tg-stat b { color: var(--accent); font-variant-numeric: tabular-nums; }
+.tg-stat .muted { color: var(--muted); }
+.tg-table { overflow-x: auto; margin-top: 14px; }
+.tg-table .inner { min-width: 700px; }
+.vrow.tg { grid-template-columns: 38px minmax(200px, 1.5fr) minmax(150px, 1.2fr) 70px 64px 112px; }
+.status-ok { display: inline-block; font-family: var(--mono); font-size: 12px; padding: 1px 8px; border-radius: 6px; background: rgba(74,222,128,.14); color: var(--good); }
+.tg-done { margin-top: 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); font-size: 13.5px; }
+.tg-done.good { border-color: rgba(74,222,128,.35); background: rgba(74,222,128,.07); }
+.tg-done.none { border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.07); }
+@media (max-width: 640px) { .tg-adv .grid { grid-template-columns: 1fr; } }
+
+/* guide */
+.gd { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; background: var(--panel-2); }
+.gd > summary { list-style: none; cursor: pointer; padding: 12px 14px; font-weight: 600; display: flex; justify-content: space-between; gap: 10px; }
+.gd > summary::-webkit-details-marker { display: none; }
+.gd > summary::after { content: "+"; color: var(--muted); }
+.gd[open] > summary { border-bottom: 1px solid var(--line); color: var(--accent); }
+.gd[open] > summary::after { content: "\2212"; }
+.gd .gbody { padding: 12px 14px 14px; font-size: 13.5px; line-height: 1.6; color: #cfd8e6; }
+.gd p { margin: 0 0 10px; }
+.gd ul, .gd ol { margin: 0 0 10px; padding-left: 20px; }
+.gd li { margin-bottom: 4px; }
+.gd code { font-family: var(--mono); background: #0b1019; border: 1px solid var(--line); padding: 0 5px; border-radius: 5px; font-size: 12px; }
+.gd .tbl { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 12.5px; }
+.gd .tbl th, .gd .tbl td { text-align: left; vertical-align: top; padding: 8px 9px; border-bottom: 1px solid rgba(31,40,56,.7); white-space: normal; }
+.gd .tbl th { position: static; background: transparent; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; }
+.gd .tbl td:first-child { white-space: nowrap; font-weight: 600; color: var(--text); }
+.gd .tblwrap { overflow-x: auto; }
+.callout { border-left: 3px solid var(--warn); background: rgba(251,191,36,.07); padding: 8px 12px; border-radius: 0 8px 8px 0; margin: 8px 0 12px; }
+.callout.tip { border-color: var(--accent); background: rgba(94,234,212,.07); }
+.callout.bad { border-color: var(--bad); background: rgba(248,113,113,.07); }
+.gd .ok { color: var(--good); } .gd .meh { color: var(--warn); } .gd .no { color: var(--bad); }
+
+/* insights */
+.insights { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.hist { display: flex; align-items: flex-end; gap: 6px; height: 110px; padding: 6px 2px 0; }
+.hist div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: 4px; min-width: 0; }
+.hist i { width: 100%; border-radius: 5px 5px 2px 2px; background: linear-gradient(180deg, var(--accent), rgba(94,234,212,.25)); min-height: 2px; transition: height .35s ease; }
+.hist span { font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.hist em { font-style: normal; font-size: 11px; font-family: var(--mono); }
+.split { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: #0b1019; margin: 6px 0 14px; }
+.split i { display: block; height: 100%; transition: width .35s ease; }
+.legend { display: grid; gap: 4px; }
+.legend button, .ctry button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; border-radius: 6px; padding: 3px 4px; }
+.legend button:hover, .ctry button:hover { background: var(--panel-2); }
+.legend button[aria-pressed=true], .ctry button[aria-pressed=true] { background: rgba(94,234,212,.12); }
+.legend .it { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; gap: 8px; }
+.legend .it span { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.legend .it span::before { content: ""; width: 9px; height: 9px; border-radius: 3px; background: var(--c); }
+.legend b, .ctry b { font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.ctry { display: grid; gap: 2px; }
+.ctry .row { display: grid; grid-template-columns: 28px 1fr 38px; gap: 8px; align-items: center; }
+.ctry .row i { height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--accent-2), var(--accent)); display: block; transition: width .35s; }
+.ctry .row span { font-family: var(--mono); color: var(--muted); font-size: 12px; }
+.empty-note { color: var(--muted); font-size: 12.5px; padding: 18px 0; text-align: center; }
+
+/* tabs */
+.tabs { display: flex; gap: 4px; padding: 8px 10px 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { all: unset; cursor: pointer; padding: 10px 14px; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab:hover { color: var(--text); }
+.tab[aria-selected=true] { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:focus-visible { outline: 2px solid var(--accent); border-radius: 6px; }
+.tab small { font-family: var(--mono); font-weight: 500; opacity: .8; margin-left: 4px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.toolbar input[type=search] { width: 200px; }
+.toolbar select { width: auto; min-width: 130px; }
+.toolbar .sep { width: 1px; height: 22px; background: var(--line); }
+.toolbar .grow { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.count { color: var(--muted); font-size: 12.5px; font-family: var(--mono); }
+
+/* virtual table */
+.vt { height: min(72vh, 760px); min-height: 320px; overflow: auto; position: relative; scrollbar-width: thin; }
+.vt-inner { min-width: 1020px; }
+.vrow { display: grid; grid-template-columns: 38px minmax(262px,1.7fr) 106px minmax(130px,1.2fr) 78px 72px minmax(120px,1fr) 112px; gap: 8px; align-items: center; height: 42px; padding: 0 12px; border-bottom: 1px solid rgba(31,40,56,.55); font-size: 13px; }
+.vrow.head { position: sticky; top: 0; z-index: 2; height: 38px; background: var(--panel); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+.vrow.head button { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+.vrow.head button:hover, .vrow.head [aria-sort] button { color: var(--text); }
+.vrow.head [aria-sort=ascending] button::after { content: "▲"; font-size: 8px; color: var(--accent); }
+.vrow.head [aria-sort=descending] button::after { content: "▼"; font-size: 8px; color: var(--accent); }
+.vrow:not(.head):hover { background: var(--panel-2); }
+.vrow.live { background: rgba(94,234,212,.10); box-shadow: inset 3px 0 0 var(--accent); }
+.vrow > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rank { color: var(--muted); font-family: var(--mono); }
+.proto { display: inline-block; font-family: var(--mono); font-size: 10.5px; padding: 1px 7px; border-radius: 6px; margin-right: 9px; font-weight: 600; }
+.proto.http { background: rgba(124,156,255,.16); color: #a9bdff; }
+.proto.socks4 { background: rgba(251,191,36,.14); color: #fcd34d; }
+.proto.socks5 { background: rgba(94,234,212,.14); color: var(--accent); }
+.an { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; }
+.an::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.an.elite { --c: #5eead4; } .an.anonymous { --c: #7c9cff; } .an.transparent { --c: #f87171; } .an.unknown { --c: #6b7689; color: var(--muted); }
+.an.unknown::before { box-shadow: none; }
+.lat { display: flex; align-items: center; gap: 10px; }
+.lat .track { flex: 1; height: 5px; border-radius: 99px; background: #0b1019; overflow: hidden; min-width: 40px; }
+.lat .track i { display: block; height: 100%; border-radius: inherit; }
+.lat b { font-family: var(--mono); font-weight: 500; width: 62px; text-align: right; font-variant-numeric: tabular-nums; }
+.cc { font-family: var(--mono); font-size: 12px; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line); }
+.vrow > .acts { overflow: visible; position: sticky; right: 0; background: var(--panel); padding-left: 6px; }
+.vrow:not(.head):hover > .acts { background: var(--panel-2); }
+.vrow.live > .acts { background: #11282a; }
+.acts { display: flex; gap: 6px; justify-content: flex-end; }
+.acts button { border: 1px solid var(--line); background: transparent; border-radius: 7px; padding: 3px 8px; font-size: 12px; transition: all .15s; }
+.acts button:hover { border-color: var(--accent); color: var(--accent); }
+.acts button.use { border-color: rgba(94,234,212,.4); color: var(--accent); }
+.acts button.use.on { background: var(--accent); color: #04201c; border-color: var(--accent); font-weight: 600; }
+.empty { padding: 56px 16px; text-align: center; color: var(--muted); }
+.empty big { display: block; font-size: 15px; color: var(--text); margin-bottom: 4px; }
+
+/* lists in tabs */
+.panel-pad { padding: 14px 16px; }
+.list { display: grid; }
+.lrow { display: grid; gap: 10px; align-items: center; padding: 8px 6px; border-bottom: 1px solid rgba(31,40,56,.55); font-size: 13px; }
+.lrow:hover { background: var(--panel-2); }
+.src { grid-template-columns: 20px minmax(0,1fr) 78px 78px 14px 28px; }
+.src .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src .tag { font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; margin-left: 6px; }
+.src .num { font-family: var(--mono); color: var(--muted); text-align: right; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.src .num.hi { color: var(--accent); }
+.src .st { width: 8px; height: 8px; border-radius: 50%; background: #3a4559; }
+.lrow[data-s=loading] .st { background: var(--accent); animation: pulse 1s infinite; }
+.lrow[data-s=ok] .st { background: var(--good); }
+.lrow[data-s=failed] .st { background: var(--bad); }
+.lrow.hd { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+.x { all: unset; cursor: pointer; color: var(--muted); text-align: center; border-radius: 6px; }
+.x:hover { color: var(--bad); background: rgba(248,113,113,.12); }
+.addrow { display: grid; grid-template-columns: 110px 1fr auto; gap: 8px; margin-top: 14px; }
+.files { grid-template-columns: minmax(0,1fr) 90px 80px 130px auto; }
+.files .num { font-family: var(--mono); color: var(--muted); font-size: 12.5px; }
+.hcard { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; background: var(--panel-2); }
+.hcard summary { list-style: none; cursor: pointer; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+.hcard summary::-webkit-details-marker { display: none; }
+.hcard .big { font-size: 18px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.hcard .meta { color: var(--muted); font-size: 12.5px; }
+.hcard .body { padding: 0 14px 12px; }
+.sub-h { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin: 4px 0 8px; font-weight: 600; }
+.leader { grid-template-columns: minmax(0,1fr) 70px 80px 80px 60px; }
+
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: var(--text); color: #0b1019; padding: 9px 16px; border-radius: 10px; font-weight: 600; opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 10; max-width: 90vw; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; background: #0b1019; }
+.seg button { all: unset; cursor: pointer; padding: 4px 12px; border-radius: 999px; font-size: 12.5px; color: var(--muted); }
+.seg button[aria-pressed=true] { background: rgba(94,234,212,.16); color: var(--accent); font-weight: 600; }
+.seg button:focus-visible { outline: 2px solid var(--accent); }
+.tag { display: inline-block; font-size: 10.5px; padding: 0 6px; border-radius: 5px; margin-left: 8px; border: 1px solid var(--line); color: var(--muted); font-family: var(--mono); }
+.tag.ho { color: #fcd34d; border-color: rgba(251,191,36,.45); }
+.tag.lock { color: #a9bdff; border-color: rgba(124,156,255,.45); }
+.vrow .sub2 { display: block; font-size: 11px; color: var(--muted); line-height: 1.1; overflow: hidden; text-overflow: ellipsis; }
+.vrow .two-line { display: grid; align-content: center; }
+.fails { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-bottom: 12px; padding: 10px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); font-size: 12.5px; }
+.fails b { color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; margin-right: 4px; }
+.fchip { display: inline-flex; gap: 6px; padding: 3px 10px; border-radius: 99px; background: #0b1019; border: 1px solid var(--line); cursor: help; }
+.fchip i { font-style: normal; font-family: var(--mono); color: var(--text); }
+.fails .tip { flex-basis: 100%; color: #fde68a; }
+.warnline { color: #fde68a; font-size: 11.5px; margin-top: 4px; }
+.apibox { background: #0b1019; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+.pool-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.pool-stats div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.pool-stats span { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.pool-stats b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.foot { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: space-between; color: var(--muted); font-size: 12.5px; }
+.foot a { color: var(--accent); text-decoration: none; margin-left: 12px; }
+.foot a:hover { text-decoration: underline; }
+.geo-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; font-size: 12.5px; }
+.geo-row .st { font-family: var(--mono); color: var(--muted); text-align: right; }
+.geo-row .st.ok { color: var(--good); }
+.geo-row .st.err { color: var(--bad); }
+@media (max-width: 640px) { .pool-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1150px) { .main { grid-template-columns: 1fr; } .side { position: static; max-height: none; } .kpis { grid-template-columns: repeat(3, 1fr); } .insights { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .pipeline { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2, 1fr); } .insights { grid-template-columns: 1fr; }
+  .toolbar input[type=search] { width: 100%; flex: 1 1 100%; } .toolbar .grow { margin-left: 0; } .files { grid-template-columns: minmax(0,1fr) auto; } .files .hide-s { display: none; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body class="idle">
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="radar" aria-hidden="true"></div>
+      <div><h1>ProxyHive</h1><div class="sub">Scrape public proxy lists. Verify them live. Route your traffic through the best one.</div></div>
+    </div>
+    <div class="pill" id="auto-pill" hidden><span class="dot" style="background:var(--accent-2)"></span><span id="auto-txt"></span></div>
+    <div class="pill" role="status" aria-live="polite"><span class="dot"></span><span id="status">Idle</span></div>
+    <button class="btn small" id="guide-btn" type="button" title="Plain-language help about proxy types and how to use them">Guide</button>
+    <button class="btn primary" id="go">Start scan</button>
+    <button class="btn danger" id="halt" hidden>Stop</button>
+  </header>
+
+  <section class="gwbar" id="gwbar" hidden aria-label="Gateway">
+    <div class="main-info">
+      <span class="ttl"><span class="dot" style="background:var(--accent);box-shadow:0 0 10px var(--accent)"></span>Gateway on <span class="mono" id="gw-addr"></span></span>
+      <span id="gw-via"></span>
+      <span class="meta" id="gw-meta"></span>
+    </div>
+    <button class="btn small" id="gw-test" type="button">Test my IP</button>
+    <button class="btn small danger" id="gw-off" type="button">Disconnect</button>
+    <div class="res" id="gw-res"></div>
+  </section>
+  <div class="notice" id="notice" hidden></div>
+  <div class="fails" id="fails" hidden></div>
+
+  <section class="pipeline" aria-label="Pipeline">
+    <div class="stage" id="st-scrape"><div class="stage-head"><span class="n">1</span>Scrape</div><div class="stage-val" id="v-scrape">0</div><div class="stage-sub" id="s-scrape">candidates from sources</div><div class="bar"><i id="b-scrape"></i></div></div>
+    <div class="stage" id="st-tcp"><div class="stage-head"><span class="n">2</span>Port probe</div><div class="stage-val" id="v-tcp">0</div><div class="stage-sub" id="s-tcp">hosts accepting TCP</div><div class="bar"><i id="b-tcp"></i></div></div>
+    <div class="stage" id="st-check"><div class="stage-head"><span class="n">3</span>Verify</div><div class="stage-val" id="v-check">0</div><div class="stage-sub" id="s-check">working proxies</div><div class="bar"><i id="b-check"></i></div></div>
+  </section>
+
+  <section class="kpis" aria-label="Summary">
+    <div class="kpi hero"><span>Working</span><b id="k-work">0</b></div>
+    <div class="kpi"><span>Fastest</span><b id="k-fast">-</b></div>
+    <div class="kpi"><span>Median</span><b id="k-med">-</b></div>
+    <div class="kpi"><span>Checks / sec</span><b id="k-rate">-</b></div>
+    <div class="kpi"><span>ETA</span><b id="k-eta">-</b></div>
+    <div class="kpi"><span>Elapsed</span><b id="k-time">0:00</b></div>
+  </section>
+
+  <div class="main">
+    <aside class="side" id="side" aria-label="Settings"></aside>
+
+    <main>
+      <section class="insights">
+        <div class="card"><h2>Latency</h2><div class="pad"><div class="hist" id="hist"></div></div></div>
+        <div class="card"><h2>Protocols</h2><div class="pad"><div class="split" id="split-p"></div><div class="legend" id="legend-p"></div></div></div>
+        <div class="card"><h2>Anonymity</h2><div class="pad"><div class="split" id="split-a"></div><div class="legend" id="legend-a"></div></div></div>
+        <div class="card"><h2>Top countries</h2><div class="pad"><div class="ctry" id="ctry"></div></div></div>
+      </section>
+
+      <section class="card">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" aria-selected="true" data-tab="results">Results <small id="t-results">0</small></button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="target">Site check</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="sources">Sources <small id="t-sources"></small></button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="files">Saved files</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="history">History</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="pool">Pool &amp; API <small id="t-pool"></small></button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="guide">Guide</button>
+        </div>
+
+        <div data-panel="results">
+          <div class="toolbar">
+            <div class="seg" id="ds" role="group" aria-label="Which proxies to show">
+              <button type="button" data-ds="scan" aria-pressed="true">This scan</button>
+              <button type="button" data-ds="pool" aria-pressed="false">Saved pool <small id="t-pool-n"></small></button>
+            </div>
+            <input type="search" id="q" placeholder="Filter by IP, city, network" aria-label="Filter results">
+            <div class="chips" id="f-proto" aria-label="Protocol filter"></div>
+            <div class="chips" id="f-anon" aria-label="Anonymity filter"></div>
+            <button class="chip" id="f-https" aria-pressed="false" type="button" title="Hide proxies that can only forward plain http:// and cannot tunnel HTTPS">HTTPS-capable only</button>
+            <select id="f-country" aria-label="Country filter"><option value="">All countries</option></select>
+            <select id="f-sort" aria-label="Sort"></select>
+          </div>
+          <div class="toolbar">
+            <span class="count" id="shown">0 shown</span>
+            <div class="grow">
+              <select id="x-fmt" aria-label="Export format"></select>
+              <button class="btn small" id="x-copy" type="button">Copy</button>
+              <button class="btn small" id="x-dl" type="button">Download</button>
+              <button class="btn small" id="x-save" type="button">Save to folder</button>
+              <span class="sep"></span>
+              <button class="btn small" id="x-rotate" type="button" title="Route traffic through the fastest proxies shown, rotating between them">Rotate top N</button>
+            </div>
+          </div>
+          <div class="vt" id="vt">
+            <div class="vt-inner">
+              <div class="vrow head" id="vhead">
+                <span>#</span>
+                <span data-k="host"><button type="button">Proxy</button></span>
+                <span data-k="anonymity"><button type="button">Anonymity</button></span>
+                <span data-k="latency_ms"><button type="button">Latency</button></span>
+                <span data-k="speed_mbps"><button type="button">Speed</button></span>
+                <span data-k="country"><button type="button">Country</button></span>
+                <span data-k="exit_ip"><button type="button">Exit IP / network</button></span>
+                <span></span>
+              </div>
+              <div id="vt-body" style="position:relative"><div id="vt-win" style="position:absolute;left:0;right:0;top:0"></div></div>
+              <div class="empty" id="empty"></div>
+            </div>
+          </div>
+        </div>
+
+        <div data-panel="target" hidden class="panel-pad">
+          <div class="tg-hero">
+            <label for="tg-url">Which website should the proxies be able to open?</label>
+            <form class="tg-row" id="tg-form">
+              <input type="text" id="tg-url" placeholder="https://example.com/page   (or just example.com)" autocomplete="off" spellcheck="false">
+              <button class="btn primary" id="tg-go" type="submit">Check proxies</button>
+              <button class="btn danger" id="tg-stop" type="button" hidden>Stop</button>
+            </form>
+            <div class="warnline" id="tg-err" hidden></div>
+            <div class="hint">Each proxy tries to load that exact page. You get the list of the ones that really work for it. Some sites block most free proxies, so a proxy that works in general can still fail here.</div>
+          </div>
+
+          <div class="tg-step">1. Which proxies should I test?</div>
+          <div class="seg wide" id="tg-src" role="group" aria-label="Where the proxies come from">
+            <button type="button" data-src="pool" aria-pressed="true">Saved pool <small id="tg-n-pool"></small></button>
+            <button type="button" data-src="scan" aria-pressed="false">This scan's results <small id="tg-n-scan"></small></button>
+            <button type="button" data-src="sources" aria-pressed="false">Fresh from the sources</button>
+          </div>
+          <div class="hint" id="tg-src-hint" style="margin-top:6px"></div>
+
+          <details class="tg-adv" id="tg-adv-box"><summary>Options (all optional)</summary><div class="grid" id="tg-opts"></div></details>
+
+          <div class="tg-run" id="tg-run" hidden>
+            <div class="bar"><i id="tg-bar"></i></div>
+            <div class="tg-stat" id="tg-stat"></div>
+            <div class="fails" id="tg-fails" hidden style="margin:12px 0 0"></div>
+          </div>
+          <div class="tg-done" id="tg-done" hidden></div>
+
+          <div id="tg-res" hidden>
+            <div class="toolbar" style="padding:12px 0;border:0">
+              <span class="count" id="tg-count"></span>
+              <div class="grow">
+                <select id="tg-fmt" aria-label="Export format"></select>
+                <button class="btn small" id="tg-copy" type="button">Copy</button>
+                <button class="btn small" id="tg-dl" type="button">Download</button>
+                <button class="btn small" id="tg-save" type="button">Save to folder</button>
+                <span class="sep"></span>
+                <button class="btn small" id="tg-rotate" type="button" title="Route your traffic through the fastest of these, rotating between them">Rotate top N</button>
+              </div>
+            </div>
+            <div class="tg-table"><div class="inner">
+              <div class="vrow head tg"><span>#</span><span>Proxy</span><span>Opens the page in</span><span>Status</span><span>Country</span><span></span></div>
+              <div id="tg-list"></div>
+            </div></div>
+            <button class="btn more" id="tg-more" hidden type="button"></button>
+          </div>
+          <div class="empty" id="tg-empty" style="padding:36px 16px"><big>Type a website above and press Check proxies</big>You will see the proxies that can open it, fastest first, as they are found.</div>
+        </div>
+
+        <div data-panel="sources" hidden class="panel-pad">
+          <div class="imp">
+            <div class="sub-h" style="margin-top:0">Import your own proxies</div>
+            <p class="hint" style="margin:0 0 8px">Paste proxies or links to lists, or load files, then check just these. Any format works: <code>ip:port</code>, <code>socks5://ip:port</code>, <code>user:pass@ip:port</code>, IP ranges, saved web pages and JSON.</p>
+            <textarea id="imp-text" rows="5" placeholder="1.2.3.4:8080&#10;socks5://5.6.7.8:1080&#10;https://example.com/my-proxy-list.txt" spellcheck="false" aria-label="Proxies or links to paste"></textarea>
+            <div class="imp-files" id="imp-files"></div>
+            <div class="imp-row">
+              <span class="imp-opt"><label for="imp-proto">Plain ip:port means</label><select id="imp-proto" aria-label="Type of proxies written without a prefix"></select></span>
+              <input type="file" id="imp-file" multiple hidden>
+              <button class="btn small" id="imp-pick" type="button">Load file(s)</button>
+              <button class="btn small" id="imp-save" type="button" title="They will be checked in every future scan">Add to my custom list</button>
+              <button class="btn primary" id="imp-go" type="button">Check these now</button>
+            </div>
+            <div class="hint" id="imp-count" style="margin-top:8px"></div>
+          </div>
+          <div class="sub-h">Sources</div>
+          <div class="list" id="srcs"></div>
+          <form class="addrow" id="src-form"><select id="src-proto" aria-label="Protocol"></select><input type="text" id="src-url" placeholder="https://example.com/proxies.txt" aria-label="Source URL"><button class="btn small" type="submit">Add source</button></form>
+          <div class="sub-h" style="margin-top:22px">Custom list <span class="count" id="custom-n"></span></div>
+          <textarea id="custom" rows="6" placeholder="Paste proxies here, one per line: 1.2.3.4:8080 or socks5://1.2.3.4:1080. They are checked on every scan (turn off under Scan settings)."></textarea>
+          <div style="margin-top:8px"><button class="btn small" id="custom-save" type="button">Save custom list</button></div>
+        </div>
+
+        <div data-panel="files" hidden class="panel-pad">
+          <div class="lbl"><span>Folder: <b id="files-dir"></b></span><button class="btn small" id="files-refresh" type="button">Refresh</button></div>
+          <div class="list" id="files"></div>
+          <div class="hint">Re-check loads a saved list, tests every proxy in it again, and shows the ones that still work.</div>
+        </div>
+
+        <div data-panel="history" hidden class="panel-pad">
+          <div class="sub-h">Best sources (all scans)</div>
+          <div class="list" id="leader"></div>
+          <div class="sub-h" style="margin-top:22px">Scans</div>
+          <div id="hist-list"></div>
+        </div>
+
+        <div data-panel="pool" hidden class="panel-pad">
+          <div class="pool-stats" id="pool-stats"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+            <button class="btn small" id="pool-recheck" type="button">Re-check pool now</button>
+            <button class="btn small" id="pool-refill" type="button">Scan for new proxies</button>
+            <button class="btn small danger" id="pool-clear" type="button">Empty the pool</button>
+          </div>
+          <div class="hint">The pool lives in pool.json and survives restarts. Every scan adds what it finds. A failed re-check adds 1 to a proxy's failure score, a pass removes 1, and it is dropped once the score goes above the limit (Settings, Proxy pool). Switch on automatic upkeep there to re-check on a schedule and refill when the pool runs low.</div>
+          <div class="sub-h" style="margin-top:22px">Use the pool from your own scripts</div>
+          <div class="hint" style="margin-bottom:8px">Local only (127.0.0.1), no key needed. Filters: type (http, socks4, socks5, https), country, anonymity, max_latency, https=1, strategy=best|random, format=text.</div>
+          <div class="apibox" id="api-ex"></div>
+          <div style="margin-top:8px"><button class="btn small" id="api-copy" type="button">Copy examples</button></div>
+        </div>
+
+        <div data-panel="guide" hidden class="panel-pad">
+          <p class="hint" style="margin:0 0 12px">New to proxies? Start with the first section. Everything here is plain language, no experience needed.</p>
+
+          <details class="gd" open><summary>Start here: what a proxy does</summary><div class="gbody">
+            <p>A <b>proxy</b> is a middleman computer. Instead of your computer talking to a website directly, it talks to the proxy, and the proxy talks to the website. The website sees the <b>proxy's address</b> (called the <i>exit IP</i>), not yours.</p>
+            <p>People use proxies to hide their real IP, to see a website as if they were in another country, to spread many requests over many addresses (scraping, testing), or to get around a block.</p>
+            <div class="callout"><b>A proxy is not a VPN.</b> It only covers the app or browser you point at it, and it does <b>not</b> encrypt anything by itself. Websites that use <code>https://</code> stay encrypted between you and the site, but the proxy's owner can still see which sites you visit, and can read anything sent over plain <code>http://</code>.</div>
+            <p><b>The quick path in ProxyHive:</b></p>
+            <ol>
+              <li>Press <b>Start scan</b>. ProxyHive downloads public lists and tests every proxy for you.</li>
+              <li>Working proxies appear in <b>Results</b>. Pick one marked <b>Elite</b>, without an <i>HTTP only</i> tag, with a low latency.</li>
+              <li>Press <b>Use</b> on that row, then <b>Test my IP</b> in the green bar. It should show a different IP and country.</li>
+              <li>Point your browser at <code>127.0.0.1</code> and the port shown (default <code>8082</code>), or switch on <i>Also set the Windows system proxy</i> in Settings, Gateway.</li>
+              <li>When you are done press <b>Disconnect</b>. Your normal internet settings are restored.</li>
+            </ol>
+          </div></details>
+
+          <details class="gd"><summary>Proxy types: HTTP, HTTPS, SOCKS4, SOCKS5</summary><div class="gbody">
+            <p>The "type" is the language the proxy speaks. It decides what traffic it can carry.</p>
+            <div class="tblwrap"><table class="tbl">
+              <tr><th>Type</th><th>What it is</th><th>Strengths</th><th>Limits</th><th>Best for</th></tr>
+              <tr><td>HTTP</td><td>Understands web requests. For <code>http://</code> sites it forwards your request. For <code>https://</code> sites it opens a tunnel with a command called CONNECT.</td><td>Most common. Works in every browser, <code>curl</code> and scraping library. Can be tested for anonymity.</td><td>Web traffic only. Many free ones refuse HTTPS tunnels (ProxyHive tags those <b>HTTP only</b>).</td><td>Browsing and scraping websites and APIs.</td></tr>
+              <tr><td>"HTTPS"</td><td>Usually the same HTTP proxy, just one that <i>allows</i> tunnels to https:// sites. In ProxyHive this is called <b>HTTPS-capable</b> (no HTTP-only tag).</td><td>Needed for almost every modern website.</td><td>The word is confusing: it rarely means the link to the proxy itself is encrypted.</td><td>Anything where the site address starts with https://.</td></tr>
+              <tr><td>SOCKS4</td><td>An older, simpler tunnel. Carries any TCP connection.</td><td>Works for more than just web pages.</td><td>No UDP, no logins, IPv4 only. Your computer usually looks up website names itself, which can leak which sites you visit.</td><td>When nothing better is available.</td></tr>
+              <tr><td>SOCKS5</td><td>The modern tunnel. Carries any traffic, and can pass the website-name lookup to the proxy.</td><td>Most flexible. Does not read or change your traffic, so it adds no revealing headers. Supports logins and IPv6.</td><td>ProxyHive tests web (TCP) traffic only. It does not verify UDP support.</td><td>Apps with a "SOCKS5 proxy" setting (Telegram, SSH, Git, many browsers), and general-purpose use.</td></tr>
+            </table></div>
+            <div class="callout tip"><b>Rule of thumb:</b> for websites pick <b>HTTPS-capable HTTP</b> or <b>SOCKS5</b>. For other apps pick <b>SOCKS5</b>. Avoid <i>HTTP only</i> proxies unless you only visit plain <code>http://</code> pages.</div>
+          </div></details>
+
+          <details class="gd"><summary>Anonymity levels: Elite, Anonymous, Transparent</summary><div class="gbody">
+            <p>This describes what the <i>website</i> can learn about you. ProxyHive tests it by sending a request to a page that echoes back the headers it received.</p>
+            <div class="tblwrap"><table class="tbl">
+              <tr><th>Level</th><th>What the website sees</th><th>Verdict</th></tr>
+              <tr><td class="ok">Elite</td><td>Looks like a normal visitor from the proxy's address. No sign that a proxy is involved and no trace of your real IP.</td><td class="ok">Best. Use these.</td></tr>
+              <tr><td class="meh">Anonymous</td><td>Your real IP is hidden, but the proxy adds headers (such as <code>Via</code>) that say "this is a proxy". Sites that block proxies can spot it.</td><td class="meh">OK for simple jobs.</td></tr>
+              <tr><td class="no">Transparent</td><td>Your <b>real IP is passed along</b> to the website. It hides nothing.</td><td class="no">Useless for privacy. Avoid.</td></tr>
+              <tr><td>Unknown</td><td>The test could not run (the proxy would not forward plain HTTP).</td><td>Treat with caution.</td></tr>
+            </table></div>
+            <div class="callout"><b>"Elite" is about headers only.</b> It does not mean the proxy is safe or private. The person running it can still see your traffic, and many proxy IPs are already known to websites. SOCKS proxies cannot add headers at all, so they show as Elite unless your own IP leaks.</div>
+          </div></details>
+
+          <details class="gd"><summary>What the labels and columns mean</summary><div class="gbody">
+            <ul>
+              <li><b>Latency</b>: how long one complete HTTPS request took through the proxy. Under 1 s is great, 1 to 3 s is fine, over 3 s feels slow.</li>
+              <li><b>Speed (Mb/s)</b>: download speed, only measured if you switch on the speed test in Settings.</li>
+              <li><b>Country</b>: where websites will think you are.</li>
+              <li><b>Exit IP / network</b>: the address websites see, plus the city and the company that owns that network (needs the optional location data). A hosting company name means a <i>datacenter</i> proxy, which many sites distrust.</li>
+              <li><b>HTTP only</b> tag: forwards plain <code>http://</code> but cannot tunnel HTTPS, so most modern sites will not load. Hide them with <i>HTTPS-capable only</i>.</li>
+              <li><b>login ✓</b> tag: this proxy uses a username and password, and ProxyHive has them (the ones you pasted, or listed with the proxy) and sends them automatically. It is not a warning and it asks nothing of you. If a proxy fails with <i>Needs a login</i> instead, it demanded a login that ProxyHive does not have.</li>
+              <li><b>Health</b> (saved pool): <span class="ok">&#10003; 3m</span> passed its last check 3 minutes ago. <span class="meh">&#9888; 2 fails</span> failed recently and is dropped if it keeps failing.</li>
+            </ul>
+            <p><b>"Why proxies failed"</b> (shown during a scan):</p>
+            <ul>
+              <li><b>Port timed out / refused / host unreachable</b>: nothing is listening there any more. This is normal; most free proxies are dead.</li>
+              <li><b>Timed out</b>: it answered but too slowly. If this is most of the failures, raise the timeout.</li>
+              <li><b>Needs a login</b>: a private proxy. Add it as <code>user:pass@ip:port</code> if you have the details.</li>
+              <li><b>Wrong protocol</b>: the list called it SOCKS but it speaks HTTP (or the other way round).</li>
+              <li><b>TLS / certificate error</b>: the proxy tampers with HTTPS. Rejected on purpose, it could be spying.</li>
+              <li><b>Proxy refused request</b>: it blocks tunnels or is misconfigured.</li>
+            </ul>
+          </div></details>
+
+          <details class="gd"><summary>Which proxy for which job</summary><div class="gbody">
+            <div class="tblwrap"><table class="tbl">
+              <tr><th>I want to...</th><th>Pick</th><th>Notes</th></tr>
+              <tr><td>Browse with a different IP</td><td>Elite, HTTPS-capable HTTP or SOCKS5, latency under 2 s</td><td>Press <b>Use</b>, then set your browser to the gateway port.</td></tr>
+              <tr><td>Scrape sites or call APIs</td><td>HTTPS-capable HTTP or SOCKS5</td><td>Rotate between many proxies (<b>Rotate top N</b> or the pool API) and retry on failure. Expect many to die within the hour.</td></tr>
+              <tr><td>See a site from another country</td><td>Filter by <b>Country</b>, Elite, HTTPS-capable</td><td>Use the <b>Site check</b> tab to confirm the proxy can actually load that site. Streaming and shopping sites block most free datacenter IPs.</td></tr>
+              <tr><td>Use Telegram or another app with its own proxy setting</td><td>SOCKS5</td><td>Press <b>Copy</b> on the row and enter the address in the app. The gateway gives your apps an HTTP proxy, so SOCKS-only apps should use the SOCKS5 proxy directly.</td></tr>
+              <tr><td>Torrents, games, voice or video calls</td><td>Not recommended</td><td>These need UDP and good speed, and free proxies are slow and unreliable for them.</td></tr>
+              <tr><td>Anything with passwords, banking or private accounts</td><td class="no">Do not use free proxies</td><td>The owner can see and change what passes through.</td></tr>
+            </table></div>
+          </div></details>
+
+          <details class="gd"><summary>Free proxies: what to expect (and the risks)</summary><div class="gbody">
+            <ul>
+              <li>Only about <b>1 to 2 in 100</b> scraped proxies actually work, and a working one often dies within minutes to hours. Check again right before you use one.</li>
+              <li>They are usually slow, and the owners are unknown. Some log what you do, inject ads or steal logins on plain <code>http://</code> pages.</li>
+              <li>Never log in to anything important through a free proxy, and prefer <code>https://</code> sites. ProxyHive already rejects proxies that tamper with HTTPS certificates.</li>
+              <li>For steady, serious work use a paid proxy service. You can import paid proxies in the form <code>user:pass@host:port</code> and test them with the same tools.</li>
+            </ul>
+          </div></details>
+
+          <details class="gd"><summary>Three ways to use a working proxy</summary><div class="gbody">
+            <ol>
+              <li><b>The gateway (easiest).</b> Press <b>Use</b>. ProxyHive opens a local proxy on <code>127.0.0.1:8082</code> that forwards to the one you picked, and switches proxies for you if you chose <b>Rotate top N</b>. Point your browser at it, or tick the Windows system proxy option.</li>
+              <li><b>Directly in an app.</b> Press <b>Copy</b> to get an address such as <code>socks5://1.2.3.4:1080</code>. Enter it in the app's proxy settings, or in a command: <code>curl -x socks5h://1.2.3.4:1080 https://example.com</code> (the <code>h</code> sends website-name lookups through the proxy too).</li>
+              <li><b>From your own scripts.</b> The <b>Pool &amp; API</b> tab shows ready-made examples to fetch a fresh proxy by type, country or anonymity.</li>
+            </ol>
+            <p>You can also <b>export</b> lists as plain text, CSV, JSON, a proxychains file or a browser PAC file.</p>
+          </div></details>
+
+          <details class="gd"><summary>The saved pool and how it stays fresh</summary><div class="gbody">
+            <p>Every working proxy is saved in the <b>pool</b>, so your list survives a restart. Each proxy has a <b>failure score</b>: a failed re-check adds 1, a pass removes 1, and a proxy is dropped once its score goes above the limit (Settings, Proxy pool). A good proxy survives one bad moment, while dead ones disappear.</p>
+            <p>Switch on <i>Keep the pool fresh automatically</i> to have ProxyHive re-check the pool on a schedule and scan for new proxies when it gets small. It is off by default because it uses your internet in the background.</p>
+          </div></details>
+
+          <details class="gd"><summary>Proxy list formats ProxyHive understands</summary><div class="gbody">
+            <p>Paste any of these (or a whole page or JSON file) into <b>Sources, Import your own proxies</b>. Mixed formats in one list are fine.</p>
+            <div class="tblwrap"><table class="tbl">
+              <tr><th>Format</th><th>Example</th><th>Meaning</th></tr>
+              <tr><td>ip:port</td><td><code>1.2.3.4:8080</code></td><td>A plain proxy with no login. Without a prefix ProxyHive tries it as HTTP, SOCKS4 and SOCKS5 (or the type you choose).</td></tr>
+              <tr><td>with a type</td><td><code>socks5://1.2.3.4:1080</code></td><td>The prefix says the proxy type, so only that type is tried.</td></tr>
+              <tr><td>user:pass@host</td><td><code>http://bob:secret@1.2.3.4:8080</code></td><td>A proxy that needs a login.</td></tr>
+              <tr><td>host:port:user:pass</td><td><code>http://1.2.3.4:8080:bob:secret</code></td><td>The same thing written the way many paid providers hand it out. Anything in <code>{braces}</code> after it is just a note and is ignored.</td></tr>
+              <tr><td>IP range</td><td><code>10.20.30.0/24:8080</code></td><td>Every address in the range (up to a /16) on that port.</td></tr>
+              <tr><td>Links</td><td><code>https://example.com/list.txt</code></td><td>A line that is just a web address is downloaded and read as a list.</td></tr>
+              <tr><td>Web pages, JSON</td><td>saved HTML tables, <code>{"ip":"1.2.3.4","port":"80"}</code></td><td>IP and port in neighbouring cells or fields are found automatically.</td></tr>
+            </table></div>
+            <p><b>What are lines like <code>http://203.0.113.10:9999:acct42-pool-res.mobile.corp-country-CA-mode-hold-session-9f3c2a7e1b:Pa55w0rdExample{17 October 20-39 - residential,mobile,corporate - CA}</code>?</b></p>
+            <ul>
+              <li><code>http://203.0.113.10:9999</code> is the provider's <b>entrance</b> (a gateway), not the address websites will see.</li>
+              <li>The long <b>username</b> carries the settings: the account, the pool (<code>res.mobile.corp</code> means residential, mobile and corporate IPs), the wanted <b>country</b> (<code>country-CA</code> is Canada), <code>mode-hold</code> (a sticky session that keeps the same exit IP for a while) and a <b>session id</b>. The part after the next colon is the <b>password</b>.</li>
+              <li>The <code>{...}</code> at the end is a label added by the provider's panel (date, kinds of IP, country). ProxyHive ignores it.</li>
+              <li>These are paid residential or mobile proxies. They look like home or phone users, so most websites trust them far more than free ones. Treat the username and password like any other password.</li>
+              <li>One gateway can serve many countries: the same host and port with a different username gives a different exit country. If a list repeats the same host and port with different usernames, ProxyHive keeps the first login for that host and port.</li>
+            </ul>
+          </div></details>
+
+          <details class="gd"><summary>Troubleshooting</summary><div class="gbody">
+            <ul>
+              <li><b>Few or no working proxies.</b> Normal for free lists. Scan again, and read <i>Why proxies failed</i> for hints.</li>
+              <li><b>Everything times out.</b> Check that no VPN or firewall is blocking connections, raise <i>Timeout per proxy</i>, or lower <i>Parallel checks</i>.</li>
+              <li><b>My internet slows down or drops during a scan.</b> Too many parallel connections for your router. Lower <i>Parallel checks</i> (try 300) and <i>Parallel port probes</i> (try 500).</li>
+              <li><b>Test my IP shows my own IP.</b> The proxy died or does not carry that traffic. Pick another one, or use <b>Rotate top N</b>.</li>
+              <li><b>Websites do not load but HTTP ones do.</b> You picked an <i>HTTP only</i> proxy. Choose an HTTPS-capable one.</li>
+              <li><b>A site shows a captcha or "access denied".</b> It knows this is a proxy address. Try another country or another proxy, and use the <b>Site check</b> tab to find ones that work for that site.</li>
+              <li><b>Test my IP says the gateway works, but a site like whatismyip still shows my old IP.</b> The gateway only changes the IP of programs that use it. Check the second line of the test: it tests <i>this browser</i>. If it says the browser is not using the gateway, set the browser's proxy to <code>HTTP 127.0.0.1</code> and the gateway port, or turn on <i>Also set the Windows system proxy</i> (Chrome, Edge and Brave follow it). If Windows says it did not accept the proxy, start ProxyHive from <code>start-ui.bat</code> or <code>ProxyHive.exe</code> in a normal window, not from inside another app's preview. If you also run a VPN or proxy app (for example one that listens on a local port such as 10808), it may be overriding the Windows proxy, and your "own IP" may really be the VPN's.</li>
+              <li><b>Windows still uses the proxy after a crash.</b> Start ProxyHive again and it restores your settings automatically, or turn the proxy off in Windows Settings, Network and internet, Proxy.</li>
+            </ul>
+          </div></details>
+
+          <details class="gd"><summary>Glossary</summary><div class="gbody">
+            <ul>
+              <li><b>IP address</b>: the number that identifies a computer on the internet. <b>Port</b>: the numbered door on that computer a program listens at, written after a colon, as in <code>1.2.3.4:8080</code>.</li>
+              <li><b>Exit IP</b>: the address a website sees when you use a proxy.</li>
+              <li><b>Latency</b>: waiting time. <b>Speed</b>: how much data per second.</li>
+              <li><b>Datacenter, residential, mobile proxy</b>: where the exit IP lives. Free proxies are almost always datacenter or hacked machines. Residential and mobile ones look like home users, cost money, and are harder for sites to block.</li>
+              <li><b>Rotating proxy</b>: switches between several proxies automatically.</li>
+              <li><b>ASN</b>: the number of the company that owns an IP range (for example a hosting provider).</li>
+              <li><b>CIDR range</b>: a block of addresses written like <code>10.0.0.0/24</code>.</li>
+              <li><b>DNS leak</b>: your computer looks up website names itself instead of through the proxy, which reveals which sites you visit. SOCKS5 with remote lookup avoids it.</li>
+              <li><b>CONNECT</b>: the command an HTTP proxy uses to open a tunnel for https:// sites.</li>
+            </ul>
+          </div></details>
+        </div>
+      </section>
+    </main>
+  </div>
+  <footer class="foot">
+    <span>ProxyHive <b id="app-version"></b> by <b>B3hnamR</b></span>
+    <span>Developer: B3hnamR<a href="https://t.me/B3hnamR" target="_blank" rel="noopener">Telegram</a><a href="https://github.com/B3hnamR" target="_blank" rel="noopener">GitHub</a></span>
+    <span>IP geolocation by <a href="https://db-ip.com" target="_blank" rel="noopener" style="margin-left:0">DB-IP.com</a> when enabled</span>
+  </footer>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (n) => Number(n).toLocaleString();
+const cap = (s) => s[0].toUpperCase() + s.slice(1);
+const fmtMs = (ms) => ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`;
+const fmtTime = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+const fmtBytes = (n) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
+const fmtDate = (t) => new Date(t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+const PROTO_COLORS = { http: "#7c9cff", socks4: "#fbbf24", socks5: "#5eead4" };
+const ANON_COLORS = { elite: "#5eead4", anonymous: "#7c9cff", transparent: "#f87171", unknown: "#6b7689" };
+const ANON_RANK = { elite: 0, anonymous: 1, transparent: 2, unknown: 3 };
+const SORT_KEYS = {
+  latency: [["latency_ms", 1]], anonymity: [["anonymity", 1], ["latency_ms", 1]],
+  country: [["country", 1], ["anonymity", 1], ["latency_ms", 1]], anon_country: [["anonymity", 1], ["country", 1], ["latency_ms", 1]],
+  throughput: [["speed_mbps", -1], ["latency_ms", 1]],
+};
+
+let S = {}, PROTOS = [], PRESETS = [], FORMATS = {}, SORTS = {}, ANON = [], IS_WIN = false, SAVE_DIR = "";
+let results = [], byUrl = new Map(), snap = null, gwState = null, sources = [], sourcesEdited = false;
+let view = { q: "", protos: new Set(), anons: new Set(), country: "", sortId: "anonymity", custom: null, ds: "scan", https: false };
+let poolRows = [], poolByUrl = new Map(), poolSt = null, geoSt = null, geoSig = "", FAIL = {}, nextWhat = "auto-scan";
+const rows = () => (view.ds === "pool" ? poolRows : results);
+const lookup = (url) => byUrl.get(url) || poolByUrl.get(url) || (typeof tg !== "undefined" && tg.byUrl.get(url));
+const ago = (ts) => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? Math.round(s) + "s" : s < 3600 ? Math.round(s / 60) + "m" : s < 86400 ? Math.round(s / 3600) + "h" : Math.round(s / 86400) + "d"; };
+let viewList = [], countrySig = "", lastJob = null, noticedJob = null, nextAuto = null, activeNow = false;
+
+/* ---------- helpers ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("proxyhive." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("proxyhive." + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+};
+let toastTimer;
+function toast(msg, ms = 2000) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), ms);
+}
+async function copyText(text, msg) {
+  try { await navigator.clipboard.writeText(text); toast(msg); }
+  catch {
+    const ta = el("textarea"); ta.value = text; ta.style.cssText = "position:fixed;opacity:0"; document.body.append(ta); ta.select();
+    try { document.execCommand("copy"); toast(msg); } catch { toast("Copy blocked by the browser"); }
+    ta.remove();
+  }
+}
+async function api(url, body, method = "POST") {
+  const r = await fetch(url, method === "GET" ? {} : { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+const getP = (o, p) => p.split(".").reduce((a, k) => (a == null ? a : a[k]), o);
+const setP = (o, p, v) => { const ks = p.split("."), last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = v; };
+
+/* ---------- themed dropdown: keeps the real <select> (value, change events) and draws our own menu ---------- */
+const SELECT_VALUE = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+let openDd = null;
+function makeDropdown(sel) {
+  if (sel._dd) return sel._dd;
+  const wrap = el("div", "dd"); sel.parentNode.insertBefore(wrap, sel); wrap.append(sel); sel.style.display = "none";
+  const btn = el("button", "dd-btn"), txt = el("span", "t"); btn.type = "button"; btn.append(txt);
+  btn.setAttribute("aria-haspopup", "listbox"); btn.setAttribute("aria-expanded", "false");
+  if (sel.getAttribute("aria-label")) btn.setAttribute("aria-label", sel.getAttribute("aria-label"));
+  wrap.insertBefore(btn, sel);
+  let list = null, active = -1, typed = "", typedAt = 0;
+  const refresh = () => { txt.textContent = sel.options[sel.selectedIndex]?.text ?? ""; };
+  Object.defineProperty(sel, "value", { get() { return SELECT_VALUE.get.call(sel); }, set(v) { SELECT_VALUE.set.call(sel, v); refresh(); }, configurable: true });
+  new MutationObserver(() => { refresh(); if (list) build(); }).observe(sel, { childList: true, subtree: true });
+  sel.addEventListener("change", refresh);
+  const build = () => {
+    list.replaceChildren();
+    [...sel.options].forEach((o, i) => { const li = el("li", "dd-opt"); li.setAttribute("role", "option"); li.dataset.i = i; li.setAttribute("aria-selected", String(i === sel.selectedIndex)); li.append(el("span", null, o.text)); list.append(li); });
+  };
+  const mark = (i) => { active = i; [...list.children].forEach((li, n) => li.classList.toggle("active", n === i)); list.children[i]?.scrollIntoView({ block: "nearest" }); };
+  const place = () => {
+    const r = btn.getBoundingClientRect(), below = innerHeight - r.bottom - 14, above = r.top - 14, want = Math.min(300, list.scrollHeight + 12);
+    const up = below < want && above > below, room = Math.max(110, Math.min(300, up ? above : below));
+    list.style.maxHeight = room + "px"; list.style.minWidth = r.width + "px";
+    const w = list.offsetWidth, h = Math.min(list.scrollHeight + 12, room);
+    list.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+    list.style.top = (up ? r.top - h - 6 : r.bottom + 6) + "px";
+  };
+  const close = () => { if (!list) return; list.remove(); list = null; wrap.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); if (openDd === api) openDd = null; };
+  const open = () => {
+    if (btn.matches(":disabled")) return;
+    if (openDd) openDd.close();
+    list = el("ul", "dd-list"); list.setAttribute("role", "listbox"); build(); document.body.append(list);
+    wrap.classList.add("open"); btn.setAttribute("aria-expanded", "true"); openDd = api; place(); mark(Math.max(0, sel.selectedIndex));
+    list.onclick = (e) => { const li = e.target.closest(".dd-opt"); if (li) choose(+li.dataset.i); };
+    list.onmousemove = (e) => { const li = e.target.closest(".dd-opt"); if (li && +li.dataset.i !== active) mark(+li.dataset.i); };
+  };
+  const choose = (i) => { sel.selectedIndex = i; refresh(); sel.dispatchEvent(new Event("change", { bubbles: true })); close(); btn.focus(); };
+  btn.onclick = () => (list ? close() : open());
+  btn.onkeydown = (e) => {
+    const n = sel.options.length;
+    if (["ArrowDown", "ArrowUp", "Enter", " ", "Home", "End"].includes(e.key)) e.preventDefault();
+    if (e.key === "Escape") return close();
+    if (!list) { if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) open(); }
+    else if (e.key === "ArrowDown") mark(Math.min(n - 1, active + 1));
+    else if (e.key === "ArrowUp") mark(Math.max(0, active - 1));
+    else if (e.key === "Home") mark(0);
+    else if (e.key === "End") mark(n - 1);
+    else if (e.key === "Enter" || e.key === " ") choose(active);
+    if (e.key.length === 1 && e.key !== " " && !e.ctrlKey && !e.metaKey) {       // type to jump
+      typed = Date.now() - typedAt > 700 ? e.key.toLowerCase() : typed + e.key.toLowerCase(); typedAt = Date.now();
+      const hit = [...sel.options].findIndex((o) => o.text.toLowerCase().startsWith(typed));
+      if (hit >= 0) { if (list) mark(hit); else choose(hit); }
+    }
+  };
+  const api = { close, refresh }; sel._dd = api; refresh(); return api;
+}
+document.addEventListener("pointerdown", (e) => { if (openDd && !e.target.closest(".dd-list, .dd")) openDd.close(); }, true);
+window.addEventListener("resize", () => openDd && openDd.close());
+window.addEventListener("scroll", (e) => { if (openDd && !(e.target.closest && e.target.closest(".dd-list"))) openDd.close(); }, true);
+
+/* ---------- settings (saved on the server, so they survive restarts) ---------- */
+let saveTimer = null, savePending = false;
+function queueSave() { savePending = true; clearTimeout(saveTimer); saveTimer = setTimeout(flushSettings, 400); }
+async function flushSettings() {
+  clearTimeout(saveTimer);
+  if (!savePending) return;
+  savePending = false;
+  try { const r = await api("/api/settings", S); SAVE_DIR = r.save_dir; $("#files-dir").textContent = SAVE_DIR; }
+  catch (e) { toast("Could not save settings: " + e.message); }
+}
+const protoOpts = () => PROTOS.map((p) => [p, p.toUpperCase()]);
+/* scan speed presets: measured on a home connection, where too many parallel connections quietly lose live proxies */
+const SPEEDS = [
+  { id: "thorough", label: "Thorough: finds the most (recommended)", v: { concurrency: 400, probe_concurrency: 300, probe_timeout: 3 } },
+  { id: "balanced", label: "Balanced: faster, misses about 10%", v: { concurrency: 400, probe_concurrency: 500, probe_timeout: 3 } },
+  { id: "fast", label: "Fast: much quicker, misses about a quarter", v: { concurrency: 600, probe_concurrency: 800, probe_timeout: 3 } },
+];
+const PRESET_KEYS = ["concurrency", "probe_concurrency", "probe_timeout"], fieldSetters = {};
+const speedId = () => (SPEEDS.find((p) => PRESET_KEYS.every((k) => S[k] === p.v[k])) || { id: "custom" }).id;
+function speedPreset() {
+  const wrap = el("div", "field"); wrap.append(el("label", null, "Scan speed"));
+  const sel = el("select"); sel.id = "speed-sel"; sel.setAttribute("aria-label", "Scan speed");
+  [...SPEEDS.map((p) => [p.id, p.label]), ["custom", "Custom (set below)"]].forEach(([v, t]) => sel.append(new Option(t, v)));
+  sel.value = speedId();
+  sel.onchange = () => {
+    const p = SPEEDS.find((x) => x.id === sel.value); if (!p) return;
+    Object.entries(p.v).forEach(([k, v]) => { S[k] = v; if (fieldSetters[k]) fieldSetters[k](v); });
+    queueSave();
+  };
+  wrap.append(sel); makeDropdown(sel);
+  wrap.append(el("div", "hint", "More parallel connections finish sooner, but on a home connection they quietly lose live proxies. Thorough is the default for that reason."));
+  return wrap;
+}
+function refreshPreset() { const sel = $("#speed-sel"); if (sel) sel.value = speedId(); }
+const anonOpts = () => ANON.map((a) => [a, cap(a)]);
+const SECTIONS = [
+  { id: "scan", title: "Scan", lock: true, open: true, fields: [
+    { k: "protocols", t: "chips", label: "Protocols", opts: protoOpts },
+    { t: "custom", render: () => speedPreset() },
+    { k: "timeout", t: "range", label: "Timeout per proxy", min: 2, max: 30, step: 1, f: (v) => v + " s",
+      hint: "Free proxies are slow, not dead: in a measurement 10 s found about 2.5 times more working proxies than 6 s." },
+    { k: "concurrency", t: "range", label: "Parallel checks", min: 50, max: 3000, step: 50, f: fmt,
+      warn: (v) => v > 600 ? "Above about 600 a home connection starts losing results (measured: 1,000 found 15 to 20% fewer than 400) and cheap routers can stall." : "" },
+    { k: "retry_failed", t: "toggle", label: "Second chance for slow or flaky proxies", hint: "Proxies that timed out or dropped the connection are tried once more at the end. It recovers about 30% more working proxies." },
+    { k: "prefilter", t: "toggle", label: "Probe the port before checking", hint: "Drops dead hosts quickly. Turn off if your network answers every connection." },
+    { k: "probe_timeout", t: "range", label: "Port probe timeout", min: 1, max: 12, step: 1, f: (v) => v + " s" },
+    { k: "probe_concurrency", t: "range", label: "Parallel port probes", min: 50, max: 3000, step: 50, f: fmt,
+      warn: (v) => v > 500 ? "Too many at once makes a home router drop connections, so live hosts are missed without any error (measured: 800 found about 25% fewer than 300, and 1,500 about half)." : "" },
+    { row: [{ k: "max_latency", t: "number", label: "Max latency (ms)", ph: "no limit", step: 500 }, { k: "limit", t: "number", label: "Sample size", ph: "all", step: 1000 }] },
+    { k: "max_per_source", t: "number", label: "Reject sources with more proxies than", ph: "no limit", step: 10000, hint: "Guards against junk lists. The default is 150,000." },
+    { k: "dead_cache_hours", t: "number", label: "Skip proxies that failed within (hours)", ph: "off", hint: "Repeat scans get much faster. Entries older than 7 days are dropped.", extra: () => deadCacheTools() },
+    { k: "include_custom", t: "toggle", label: "Include my custom list" },
+    { k: "fetch_timeout", t: "range", label: "Source download timeout", min: 5, max: 90, step: 5, f: (v) => v + " s" },
+  ] },
+  { id: "checks", title: "Targets and checks", lock: true, fields: [
+    { k: "test_url", t: "text", label: "Primary test URL", hint: "Must return Cloudflare-trace style key=value text (it provides exit IP and country)." },
+    { k: "extra_presets", t: "chips", label: "Must also load", opts: () => PRESETS.map((p) => [p.id, p.label]), hint: "A proxy only counts as working if every selected site loads." },
+    { k: "extra_urls", t: "lines", label: "More required URLs (one per line)", rows: 2 },
+    { k: "allow_http_only", t: "toggle", label: "Keep HTTP-only proxies", hint: "Proxies that forward plain http:// but refuse HTTPS tunnels are kept and labelled, not treated as dead." },
+    { k: "anonymity", t: "toggle", label: "Anonymity test", hint: "HTTP proxies only: a plain-HTTP request to a header-echo page. SOCKS proxies cannot add headers." },
+    { k: "judge_urls", t: "lines", label: "Header-echo URLs (plain http, tried in order)", rows: 2 },
+    { k: "speed", t: "toggle", label: "Download speed test", hint: "Slower scans, but shows real throughput." },
+    { row: [{ k: "speed_bytes", t: "number", label: "Test file (KB)", scale: 1000, step: 100 }, { k: "speed_timeout", t: "number", label: "Speed timeout (s)" }] },
+  ] },
+  { id: "geo", title: "Location data (city, ASN)", fields: [
+    { k: "geo_enrich", t: "toggle", label: "Add city, ASN and organization to results" },
+    { t: "custom", render: () => geoPanel() },
+  ] },
+  { id: "pool", title: "Proxy pool", fields: [
+    { k: "pool_enabled", t: "toggle", label: "Keep the pool fresh automatically", hint: "Re-checks the pool on a schedule and runs a scan when it gets small. It uses bandwidth in the background, so it is off by default." },
+    { row: [{ k: "pool_recheck_min", t: "number", label: "Re-check every (min)" }, { k: "pool_min_size", t: "number", label: "Refill below (proxies)" }] },
+    { k: "pool_max_fails", t: "number", label: "Drop after more than N failures", hint: "A pass removes one failure, so a good proxy survives a bad moment." },
+  ] },
+  { id: "auto", title: "Automation", fields: [
+    { k: "auto_refresh_min", t: "number", label: "Re-scan every N minutes", ph: "off", hint: "Only used when pool upkeep is off. Each re-scan also re-checks the pool." },
+    { k: "auto_save", t: "toggle", label: "Save results automatically when a scan finishes" },
+  ] },
+  { id: "save", title: "Save options", fields: [
+    { k: "save.dir", t: "text", label: "Save folder", hint: "Relative paths are inside the ProxyHive folder." },
+    { k: "save.formats", t: "chips", label: "File formats", opts: () => Object.entries(FORMATS) },
+    { k: "save.filters.protocols", t: "chips", label: "Save these protocols", opts: protoOpts },
+    { k: "save.filters.anonymity", t: "chips", label: "Save these anonymity levels", opts: anonOpts },
+    { k: "save.filters.https_only", t: "toggle", label: "Skip HTTP-only proxies" },
+    { k: "save.filters.countries", t: "csv", label: "Only these countries", ph: "e.g. US, NL (empty = all)" },
+    { row: [{ k: "save.filters.max_latency", t: "number", label: "Max latency (ms)", ph: "no limit", step: 500 }, { k: "save.filters.max_count", t: "number", label: "Max proxies", ph: "all" }] },
+    { k: "save.sort", t: "select", label: "Sort files by", opts: () => Object.entries(SORTS) },
+    { k: "save.split", t: "select", label: "Split into files by", opts: () => [["none", "one file"], ["protocol", "protocol"], ["country", "country"], ["anonymity", "anonymity level"]] },
+    { row: [{ k: "save.prefix", t: "text", label: "File name" }, { k: "save.timestamp", t: "toggle", label: "Add date/time" }] },
+    { k: "save.template", t: "text", label: "Custom template", hint: "{proto} {host} {port} {user} {pass} {country} {city} {asn} {org} {latency} {anonymity}" },
+    { row: [{ k: "save.user", t: "text", label: "Proxy user (optional)" }, { k: "save.pass", t: "text", label: "Proxy password" }] },
+    { t: "button", label: "Save current results now", onclick: () => saveNow(false) },
+  ] },
+  { id: "gateway", title: "Gateway (change my IP)", fields: [
+    { row: [{ k: "gateway.port", t: "number", label: "Local port" }, { k: "gateway.pool_size", t: "number", label: "Rotate over top N" }] },
+    { k: "gateway.mode", t: "select", label: "When using several proxies", opts: () => [["single", "Use the first one only"], ["rotate", "Rotate between them"]] },
+    { k: "gateway.order", t: "select", label: "Rotation order", opts: () => [["round_robin", "Round-robin"], ["random", "Random"]] },
+    { row: [{ k: "gateway.rotate_requests", t: "number", label: "Switch every N requests", ph: "each" }, { k: "gateway.rotate_secs", t: "number", label: "Switch every N seconds", ph: "each" }] },
+    { k: "gateway.max_errors", t: "number", label: "Drop a proxy after N errors in a row", ph: "never" },
+    { k: "gateway.auto_refill", t: "toggle", label: "Replace dropped proxies from the pool", hint: "Plain-HTTP requests that get no answer are also retried on another proxy." },
+    { k: "gateway.bind", t: "select", label: "Who can use the gateway", opts: () => [["127.0.0.1", "Only this computer"], ["0.0.0.0", "Other devices on my network (needs a password)"]] },
+    { row: [{ k: "gateway.auth_user", t: "text", label: "Gateway user" }, { k: "gateway.auth_pass", t: "text", label: "Gateway password", secret: true }] },
+    { k: "gateway.system_proxy", t: "toggle", label: "Also set the Windows system proxy", win: true, hint: "Browsers and apps that follow Windows use it. Restored on Disconnect or when the server exits. Cannot be combined with a gateway password." },
+    { t: "button", label: "Rotate through the top N of the current list", onclick: () => rotateTop() },
+    { t: "hint", label: "Or press Use on any row. Then point your browser/app at the local port (HTTP proxy), or tick the Windows option above." },
+  ] },
+];
+
+function fieldEl(f) {
+  if (f.row) { const d = el("div", "two"); f.row.forEach((x) => d.append(fieldEl(x))); return d; }
+  if (f.t === "custom") return f.render();
+  const wrap = el("div", "field");
+  if (f.win && !IS_WIN) return document.createComment("windows only");
+  if (f.t === "hint") { wrap.append(el("div", "hint", f.label)); return wrap; }
+  if (f.t === "button") { const b = el("button", "btn small", f.label); b.type = "button"; b.onclick = f.onclick; wrap.append(b); return wrap; }
+  const scale = f.scale || 1, cur = getP(S, f.k);
+  const change = (v) => { setP(S, f.k, v); queueSave(); if (PRESET_KEYS.includes(f.k)) refreshPreset(); };
+  if (f.t === "toggle") {
+    const lab = el("label", "switch"), cb = el("input"); cb.type = "checkbox"; cb.checked = !!cur;
+    cb.onchange = () => change(cb.checked);
+    lab.append(cb, el("span", "sl"), el("span", null, f.label)); wrap.append(lab);
+  } else {
+    const label = el("label", null, f.label); const out = el("b"); wrap.append(label);
+    if (f.t === "chips") {
+      const box = el("div", "chips"); label.removeAttribute("for");
+      const opts = f.opts();
+      opts.forEach(([id, text]) => {
+        const b = el("button", "chip", text); b.type = "button"; b.dataset.id = id;
+        b.setAttribute("aria-pressed", String((getP(S, f.k) || []).includes(id)));
+        b.onclick = () => { const on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", String(on));
+          change(opts.map(([o]) => o).filter((o) => box.querySelector(`[data-id="${o}"]`).getAttribute("aria-pressed") === "true")); };
+        box.append(b);
+      });
+      wrap.append(box);
+    } else if (f.t === "range") {
+      const i = el("input"); i.type = "range"; i.min = f.min; i.max = f.max; i.step = f.step; i.value = cur;
+      const show = () => { out.textContent = f.f(i.value); }; show(); label.append(out);
+      const wl = el("div", "warnline"); const upd = () => { wl.textContent = f.warn ? f.warn(Number(i.value)) : ""; wl.hidden = !wl.textContent; }; upd();
+      fieldSetters[f.k] = (v) => { i.value = v; show(); upd(); };
+      i.oninput = () => { show(); upd(); change(Number(i.value)); }; wrap.append(i, wl);
+    } else if (f.t === "number") {
+      const i = el("input"); i.type = "number"; i.min = 0; if (f.step) i.step = f.step; if (f.ph) i.placeholder = f.ph;
+      i.value = cur ? cur / scale : ""; i.oninput = () => change(i.value === "" ? 0 : Number(i.value) * scale); wrap.append(i);
+    } else if (f.t === "text") {
+      const i = el("input"); i.type = f.secret ? "password" : "text"; i.autocomplete = f.secret ? "new-password" : "off"; i.value = cur ?? ""; if (f.ph) i.placeholder = f.ph; i.oninput = () => change(i.value); wrap.append(i);
+    } else if (f.t === "csv") {
+      const i = el("input"); i.type = "text"; i.value = (cur || []).join(", "); if (f.ph) i.placeholder = f.ph;
+      i.oninput = () => change(i.value.split(/[,\s]+/).filter(Boolean)); wrap.append(i);
+    } else if (f.t === "lines") {
+      const i = el("textarea"); i.rows = f.rows || 3; i.value = (cur || []).join("\n"); i.spellcheck = false;
+      i.oninput = () => change(i.value.split("\n").map((x) => x.trim()).filter(Boolean)); wrap.append(i);
+    } else if (f.t === "select") {
+      const i = el("select"); f.opts().forEach(([v, t]) => { const o = el("option", null, t); o.value = v; i.append(o); });
+      i.value = cur; i.onchange = () => change(i.value); wrap.append(i); makeDropdown(i);
+    }
+  }
+  if (f.hint) wrap.append(el("div", "hint", f.hint));
+  if (f.extra) wrap.append(f.extra());
+  return wrap;
+}
+function deadCacheTools() {
+  const d = el("div", "hint"); d.id = "cache-tools";
+  const b = el("button", "btn small", "Clear cache"); b.type = "button"; b.style.marginLeft = "8px";
+  b.onclick = async () => { await api("/api/cache/clear"); toast("Dead-proxy cache cleared"); };
+  const n = el("span", "mono"); n.id = "cache-n";
+  d.append(el("span", null, "Remembered: "), n, b); return d;
+}
+function geoPanel() { const box = el("div"); box.id = "geo-box"; paintGeo(box); return box; }
+function paintGeo(box = $("#geo-box")) {
+  if (!box) return;
+  box.replaceChildren();
+  const g = geoSt;
+  if (!g) { box.append(el("div", "hint", "Loading...")); return; }
+  if (!g.library) box.append(el("div", "warnline", "The 'maxminddb' Python package is missing. Run: pip install maxminddb"));
+  for (const f of Object.values(g.files)) {
+    const row = el("div", "geo-row"), p = f.progress;
+    let txt = f.installed ? "installed" : "not installed", cls = f.installed ? "ok" : "";
+    if (p && p.state === "downloading") { txt = p.total ? Math.round((p.bytes / p.total) * 100) + "%" : fmtBytes(p.bytes); cls = ""; }
+    else if (p && p.state === "error") { txt = "failed: " + p.error; cls = "err"; }
+    row.append(el("span", null, f.label), el("span", "st " + cls, txt)); box.append(row);
+  }
+  const b = el("button", "btn small", g.ready ? "Update databases" : "Download databases (about 65 MB)"); b.type = "button"; b.disabled = g.busy || !g.library;
+  b.onclick = async () => { try { await api("/api/geo/download", {}); toast("Download started"); } catch (e) { toast(e.message, 4000); } };
+  box.append(b, el("div", "hint", "Free databases from DB-IP.com (CC BY 4.0). Nothing is downloaded until you press the button; after that every lookup is offline."));
+}
+function paintPoolTab() {
+  const p = poolSt; if (!p) return;
+  $("#t-pool").textContent = fmt(p.count); $("#t-pool-n").textContent = p.count ? fmt(p.count) : "";
+  const protoTxt = Object.entries(p.by_proto || {}).map(([k, v]) => `${k} ${v}`).join(" · ") || "-";
+  const box = $("#pool-stats"); box.replaceChildren();
+  [["Proxies", fmt(p.count)], ["Healthy (no failures)", fmt(p.healthy)], ["HTTPS-capable", fmt(p.https_capable)], ["By protocol", protoTxt]].forEach(([k, v]) => {
+    const d = el("div"); d.append(el("span", null, k), el("b", null, v)); if (k === "By protocol") d.lastChild.style.fontSize = "13px"; box.append(d);
+  });
+  const o = location.origin;
+  $("#api-ex").textContent = [
+    `curl "${o}/api/pool/get?type=socks5&country=US&anonymity=elite"`,
+    `curl "${o}/api/pool/get?type=https&strategy=best&format=text"`,
+    `curl "${o}/api/pool/all?type=http&max_latency=2000&format=text"`,
+    `curl "${o}/api/pool/count"`,
+    `curl -X POST ${o}/api/pool/report -H "Content-Type: application/json" -d '{"proxy":"socks5://1.2.3.4:1080","ok":false}'`,
+    ``,
+    `# Python`,
+    `import requests`,
+    `p = requests.get("${o}/api/pool/get", params={"type": "https"}).json()["proxy"]`,
+    `requests.get("https://example.com", proxies={"http": p, "https": p})`,
+  ].join("\n");
+}
+async function loadPool() {
+  try {
+    const r = await api("/api/pool/rows", null, "GET");
+    poolRows = r.rows.map(ingest); poolByUrl = new Map(poolRows.map((x) => [x.url, x]));
+    if (view.ds === "pool") { paintInsights(); scheduleTable(); }
+  } catch { /* the server may be restarting */ }
+}
+function setDs(ds) {
+  view.ds = ds;
+  $$("#ds button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.ds === ds)));
+  $("#vhead [data-k=speed_mbps] button").textContent = ds === "pool" ? "Health" : "Speed";
+  if (ds === "pool") loadPool(); else { paintInsights(); scheduleTable(); }
+  store.set("ds", ds);
+}
+function paintFails(d) {
+  const box = $("#fails"), ent = Object.entries(d.fails || {}).sort((a, b) => b[1] - a[1]);
+  box.hidden = !ent.length; if (!ent.length) return;
+  box.replaceChildren(el("b", null, "Why proxies failed"));
+  ent.forEach(([k, n]) => { const m = FAIL[k] || { label: k, tip: "" }; const c = el("span", "fchip"); c.title = m.tip; c.append(el("span", null, m.label), el("i", null, fmt(n))); box.append(c); });
+  const total = ent.reduce((a, [, n]) => a + n, 0), [topK, topN] = ent[0];
+  let tip = "";
+  if (total > 200) {
+    if (topK === "timeout" && topN / total > 0.4) tip = `Most failures are timeouts. A longer "Timeout per proxy" (now ${d.cfg.timeout} s) finds slower proxies.`;
+    else if (topK === "tls" && topN / total > 0.3) tip = "Many proxies break HTTPS certificates. They are rejected on purpose.";
+    else if (topK === "proxy_rejected" && topN / total > 0.4) tip = "Many proxies refuse to tunnel. They may need a login or use another protocol.";
+  }
+  if (tip) box.append(el("div", "tip", tip));
+}
+function buildSidebar() {
+  const side = $("#side"); side.replaceChildren();
+  SECTIONS.forEach((sec) => {
+    const d = el("details", "sec"); d.id = "sec-" + sec.id;
+    d.open = store.get("open." + sec.id, !!sec.open);
+    d.addEventListener("toggle", () => store.set("open." + sec.id, d.open));
+    d.append(el("summary", null, sec.title));
+    const fs = el("fieldset"); fs.dataset.lock = sec.lock ? "1" : "";
+    sec.fields.forEach((f) => fs.append(fieldEl(f)));
+    d.append(fs); side.append(d);
+  });
+}
+
+/* ---------- live state ---------- */
+const PHASE_TEXT = { idle: "Idle", scrape: "Downloading sources", prepare: "Preparing checks", scan: "Probing and verifying", done: "Finished", stopped: "Stopped", error: "Error" };
+const phaseText = (d) => {
+  const active = ["scrape", "prepare", "scan"].includes(d.phase);
+  if (active && d.in_retry) return "Second chance for slow proxies";
+  if (active && d.kind === "pool") return "Re-checking the pool";
+  if (active && d.kind === "import") return "Checking your list";
+  return PHASE_TEXT[d.phase] || d.phase;
+};
+function setStage(id, state, pct) {
+  const s = $("#st-" + id); s.classList.toggle("active", state === "active"); s.classList.toggle("done", state === "done");
+  $("#b-" + id).style.width = Math.max(0, Math.min(100, pct)) + "%";
+}
+function paintLive() {
+  const d = snap, phase = d.phase;
+  activeNow = ["scrape", "prepare", "scan"].includes(phase);
+  document.body.className = activeNow ? "running" : phase === "done" ? "finished" : phase === "error" ? "errored" : "idle";
+  $("#status").textContent = phaseText(d);
+  $("#go").hidden = activeNow; $("#halt").hidden = !activeNow;
+  $$("fieldset[data-lock='1']").forEach((f) => (f.disabled = activeNow));
+  nextAuto = d.next_auto; nextWhat = d.next_what || "auto-scan";
+  if (d.cache_size != null && $("#cache-n")) $("#cache-n").textContent = fmt(d.cache_size) + " entries";
+  if (d.pool) { poolSt = d.pool; paintPoolTab(); }
+  if (!$("#tg-n-pool").dataset.n || $("#tg-n-pool").dataset.n !== String(results.length) + "/" + ((poolSt && poolSt.count) || 0)) { $("#tg-n-pool").dataset.n = String(results.length) + "/" + ((poolSt && poolSt.count) || 0); tgCounts(); }
+  if (d.geo && JSON.stringify(d.geo) !== geoSig) { geoSig = JSON.stringify(d.geo); geoSt = d.geo; paintGeo(); }
+  paintGateway(d.gw);
+  if (phase === "idle") return;
+
+  const c = d.counts, scraping = phase === "scrape" || phase === "prepare", scanning = phase === "scan";
+  const srcRows = d.sources.filter((s) => s.kind === "source" || s.kind === "file");
+  const srcDone = d.sources.filter((s) => s.status === "ok" || s.status === "failed").length;
+  const srcOk = d.sources.filter((s) => s.status === "ok").length;
+  sources = d.sources; paintSources();
+
+  setStage("scrape", scraping ? "active" : "done", d.sources.length ? (srcDone / d.sources.length) * 100 : 100);
+  $("#v-scrape").textContent = fmt(d.sources.reduce((a, s) => a + s.count, 0));
+  $("#s-scrape").textContent = `${srcOk}/${d.sources.length} sources ok` + (c.candidates ? ` · ${fmt(c.candidates)} unique to test` : "") + (c.skipped ? ` · ${fmt(c.skipped)} skipped (recently dead)` : "");
+
+  const pDone = scraping ? 0 : c.endpoints ? (c.tcp_done / c.endpoints) * 100 : 100;
+  setStage("tcp", scanning ? "active" : scraping ? "pending" : "done", scraping ? 0 : pDone >= 100 && !scanning ? 100 : pDone);
+  $("#v-tcp").textContent = fmt(c.tcp_open);
+  $("#s-tcp").textContent = c.endpoints ? `${fmt(c.tcp_done)} / ${fmt(c.endpoints)} hosts probed` : "hosts accepting TCP";
+
+  const expected = c.tcp_done ? Math.max(c.check_total, (c.check_total / c.tcp_done) * c.endpoints) : 0;
+  setStage("check", scanning ? "active" : scraping ? "pending" : "done", expected ? (c.check_done / expected) * 100 : phase === "done" ? 100 : 0);
+  $("#v-check").textContent = fmt(d.total);
+  $("#s-check").textContent = c.check_total ? `${fmt(c.check_done)} / ${scanning && c.tcp_done < c.endpoints ? "~" + fmt(Math.round(expected)) : fmt(c.check_total)} checked` : "working proxies";
+
+  if (d.in_retry) $("#s-check").textContent = `Second chance: re-testing ${fmt(d.retry)} slow or flaky proxies · ${fmt(c.check_done)} / ${fmt(c.check_total)}`;
+  $("#k-rate").textContent = d.rate ? fmt(Math.round(d.rate)) : "-";
+  $("#k-eta").textContent = scanning && d.eta != null ? fmtTime(d.eta) : "-";
+  $("#k-time").textContent = fmtTime(d.elapsed);
+  document.title = results.length ? `ProxyHive · ${fmt(results.length)} working` : "ProxyHive";
+
+  paintFails(d);
+  const note = $("#notice"); const parts = [];
+  if (d.message) parts.push(d.message);
+  const ok = [];
+  if (!activeNow && d.saved && d.saved.length) ok.push(`Saved ${d.saved.length} file${d.saved.length > 1 ? "s" : ""} to ${SAVE_DIR}`);
+  if (!activeNow && d.retry) ok.push(`Second chance recovered ${fmt(d.recovered)} of ${fmt(d.retry)} proxies`);
+  if (!activeNow && d.pool_note && d.pool_note.size != null) ok.push(`Pool: ${fmt(d.pool_note.size)} proxies` + (d.pool_note.dropped ? `, ${d.pool_note.dropped} dropped` : ""));
+  note.textContent = [...parts, ...ok].join("  ·  "); note.hidden = !note.textContent; note.classList.toggle("good", !parts.length);
+  if (!activeNow && lastJob === d.job && noticedJob !== d.job) { noticedJob = d.job; loadHistory(); loadFiles(); loadPool(); }
+}
+
+/* ---------- gateway ---------- */
+const fmtBytesShort = (n) => n < 1048576 ? (n / 1024).toFixed(0) + " KB" : (n / 1048576).toFixed(1) + " MB";
+function paintGateway(g) {
+  gwState = g;
+  const bar = $("#gwbar"); bar.hidden = !(g && g.running);
+  if (!g || !g.running) { rowsDirty(); return; }
+  $("#gw-addr").textContent = `${g.bind === "0.0.0.0" ? "0.0.0.0" : "127.0.0.1"}:${g.port}`;
+  const via = $("#gw-via"); via.replaceChildren();
+  if (g.current) {
+    const r = lookup(g.current), proto = g.current.split("://")[0];
+    via.append(el("span", "proto " + proto, proto), el("span", "mono", g.current.split("://")[1]));
+    if (r) via.append(el("span", "cc", r.country));
+    if (g.pool > 1) via.append(el("span", "meta", ` +${g.pool - 1} more, ${g.mode === "rotate" ? "rotating" : "standby"}`));
+  }
+  $("#gw-meta").textContent = `${fmt(g.conns)} conns · ${g.active} open · ↑${fmtBytesShort(g.up)} ↓${fmtBytesShort(g.down)}` + (g.errors ? ` · ${g.errors} errors` : "") + (g.removed ? ` · ${g.removed} dropped, ${g.refilled} refilled` : "") + (g.retried ? ` · ${g.retried} retried` : "") + (g.protected ? " · password on" : "") + (g.bind === "0.0.0.0" ? " · open to your network" : "") + (g.system_proxy ? " · Windows proxy ON" : "");
+  rowsDirty();
+}
+let lastLive = null;
+function rowsDirty() { const cur = gwState && gwState.running ? gwState.current : null; if (cur !== lastLive) { lastLive = cur; scheduleTable(); } }
+async function useProxy(urls, rotate) {
+  try {
+    await flushSettings();
+    const g = S.gateway;
+    const r = await api("/api/gateway/start", { ...g, urls, mode: rotate && urls.length > 1 ? "rotate" : "single" });
+    $("#gw-res").textContent = "";
+    toast(r.warning || (urls.length > 1 ? `Gateway on 127.0.0.1:${g.port}, rotating ${urls.length} proxies` : `Connected through ${urls[0]}`), r.warning ? 5000 : 2500);
+    setTimeout(testGateway, 600);
+  } catch (e) { toast(e.message, 4000); }
+}
+function rotateTop() {
+  const n = Math.max(1, S.gateway.pool_size || 20);
+  const urls = viewList.slice(0, n).map((r) => r.url);
+  if (!urls.length) return toast("No proxies in the list yet");
+  useProxy(urls, true);
+}
+async function browserIp() {
+  // asked from THIS browser, so it shows the address websites see for you, not the one ProxyHive's server sees
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 8000);
+    const r = await fetch("https://api.ipify.org?format=json", { cache: "no-store", signal: ctl.signal }); clearTimeout(t);
+    return (await r.json()).ip || null;
+  } catch { return null; }
+}
+async function testGateway() {
+  const out = $("#gw-res"); out.textContent = "Testing the gateway and this browser...";
+  try {
+    const [r, bip] = await Promise.all([api("/api/gateway/test"), browserIp()]);
+    const port = (gwState && gwState.port) || S.gateway.port;
+    out.replaceChildren();
+    const line1 = el("div");
+    line1.append(el("span", r.changed ? "ok" : "no", r.changed ? "✓ The gateway works." : "✗ The gateway shows your own IP."),
+      el("span", "meta", `  Through it, websites see ${r.ip} (${r.country}) instead of ${r.own_ip || "your IP"} · ${r.ms} ms`));
+    const line2 = el("div"); line2.style.marginTop = "4px";
+    if (bip == null) {
+      line2.append(el("span", "meta", "Could not check this browser (offline, or an extension blocked the check)."));
+    } else if (bip === r.ip) {
+      line2.append(el("span", "ok", "✓ This browser is using the gateway."), el("span", "meta", `  It shows ${bip}.`));
+    } else if (bip === r.own_ip) {
+      line2.append(el("span", "no", `✗ This browser still shows your own IP (${bip}): it is NOT using the gateway yet.`),
+        el("span", "meta", `  Set its proxy to HTTP 127.0.0.1:${port}, or turn on the Windows proxy (Chrome, Edge and Brave follow it).`
+          + (gwState && gwState.system_proxy ? " The Windows proxy is on, so another app (a VPN or proxy tool) may be overriding it, or the browser has its own proxy setting." : "")));
+    } else {
+      line2.append(el("span", "meta", `This browser shows ${bip}, which is neither your IP nor the gateway's. A VPN or another proxy app is probably in the path.`));
+    }
+    out.append(line1, line2);
+  } catch (e) { out.replaceChildren(el("span", "no", e.message)); }
+}
+
+/* ---------- results ---------- */
+function ingest(r) { r.fails = r.fails || 0; r._rank = ANON_RANK[r.anonymity] ?? 9; r._h = r.host.split(".").map((n) => n.padStart(3, "0")).join("."); return r; }
+function activeSort() {
+  if (view.sortId === "custom" && view.custom) return [view.custom, ["latency_ms", 1]];
+  return SORT_KEYS[view.sortId] || SORT_KEYS.latency;
+}
+const sval = (r, k) => k === "anonymity" ? r._rank : k === "host" ? r._h : k === "speed_mbps" ? (r.speed_mbps ?? -1) : r[k];
+function computeView() {
+  const q = view.q.trim().toLowerCase();
+  let list = rows().filter((x) => (!view.protos.size || view.protos.has(x.proto)) && (!view.anons.size || view.anons.has(x.anonymity)) &&
+    (!view.country || x.country === view.country) && (!view.https || x.https !== false) &&
+    (!q || `${x.host}:${x.port} ${x.country} ${x.exit_ip} ${x.city || ""} ${x.org || ""} ${x.asn || ""}`.toLowerCase().includes(q)));
+  const keys = activeSort();
+  list.sort((a, b) => { for (const [k, dir] of keys) { const A = sval(a, k), B = sval(b, k); if (A !== B) return (A < B ? -1 : 1) * dir; } return 0; });
+  viewList = list;
+}
+const ROW_H = 42, HEAD_H = 38;
+let tableTimer = 0, scrollTimer = 0;
+function scheduleTable() { if (!tableTimer) tableTimer = setTimeout(() => { tableTimer = 0; renderTable(); }, 40); }
+function renderTable() {
+  computeView();
+  $("#vt-body").style.height = viewList.length * ROW_H + "px";
+  $("#shown").textContent = `${fmt(viewList.length)} of ${fmt(rows().length)} shown`;
+  const empty = $("#empty");
+  empty.hidden = viewList.length > 0;
+  if (!viewList.length) empty.innerHTML = rows().length ? "<big>Nothing matches the filters</big>Clear the search or filters to see everything."
+    : view.ds === "pool" ? "<big>The pool is empty</big>Run a scan. Every working proxy is saved here and survives restarts."
+    : "<big>No proxies yet</big>Press <b>Start scan</b>. Working proxies appear here live.<br><small>New to proxies? Open the <b>Guide</b> tab.</small>";
+  renderWindow();
+  paintCountries();
+}
+function renderWindow() {
+  const vt = $("#vt"), win = $("#vt-win");
+  const top = vt.scrollTop - HEAD_H, h = vt.clientHeight || 600;
+  const start = Math.max(0, Math.floor(top / ROW_H) - 6), end = Math.min(viewList.length, Math.ceil((top + h) / ROW_H) + 6);
+  win.style.transform = `translateY(${start * ROW_H}px)`;
+  const live = gwState && gwState.running ? gwState.current : null;
+  let html = "";
+  for (let i = start; i < end; i++) {
+    const x = viewList[i], isLive = x.url === live;
+    const color = x.latency_ms < 1000 ? "var(--good)" : x.latency_ms < 3000 ? "var(--warn)" : "var(--slow)";
+    const w = Math.max(4, 100 - Math.min(100, x.latency_ms / 60));
+    const pool = view.ds === "pool";
+    const health = pool ? (x.fails ? `<span style="color:var(--warn)" title="${x.fails} recent failure(s). Dropped above the limit in Settings.">⚠ ${x.fails} fail${x.fails > 1 ? "s" : ""}</span>` : `<span style="color:var(--good)" title="last passed a check ${ago(x.last_ok)} ago">✓ ${ago(x.last_ok)}</span>`)
+      : (x.speed_mbps == null ? "-" : x.speed_mbps + " Mb/s");
+    const net = [x.city, x.org || x.asn].filter(Boolean).join(" · ");
+    html += `<div class="vrow${isLive ? " live" : ""}" data-url="${esc(x.url)}">` +
+      `<span class="rank">${i + 1}</span>` +
+      `<span><span class="proto ${x.proto}">${x.proto}</span><span class="mono">${esc(x.host)}:${x.port}</span>` +
+        `${x.https === false ? `<span class="tag ho" title="Forwards plain http:// only. It cannot tunnel HTTPS.">HTTP only</span>` : ""}` +
+        `${x.has_auth ? `<span class="tag lock" title="This proxy uses a username and password. ProxyHive has them (the ones you pasted) and sends them automatically.">login ✓</span>` : ""}</span>` +
+      `<span><span class="an ${x.anonymity}">${cap(x.anonymity)}</span></span>` +
+      `<span class="lat"><span class="track"><i style="width:${w}%;background:${color}"></i></span><b style="color:${color}">${fmtMs(x.latency_ms)}</b></span>` +
+      `<span class="mono" style="color:var(--muted)">${health}</span>` +
+      `<span><span class="cc">${esc(x.country)}</span></span>` +
+      `<span class="two-line" title="${esc(x.exit_ip + (net ? " · " + net : ""))}"><span class="mono">${esc(x.exit_ip)}</span>${net ? `<span class="sub2">${esc(net)}</span>` : ""}</span>` +
+      `<span class="acts"><button data-act="copy" title="Copy proxy URL">Copy</button><button class="use${isLive ? " on" : ""}" data-act="use">${isLive ? "● Live" : "Use"}</button></span></div>`;
+  }
+  win.innerHTML = html;
+}
+function paintCountries() {
+  const cc = {}; rows().forEach((r) => { cc[r.country] = (cc[r.country] || 0) + 1; });
+  const sig = Object.keys(cc).sort().join(",");
+  if (sig !== countrySig) {
+    countrySig = sig; const sel = $("#f-country"), cur = view.country; sel.replaceChildren(new Option("All countries", ""));
+    Object.entries(cc).sort((a, b) => b[1] - a[1]).forEach(([c, n]) => sel.append(new Option(`${c} (${n})`, c))); sel.value = cur;
+  }
+}
+function paintInsights() {
+  const n = rows().length, lat = rows().map((r) => r.latency_ms).sort((a, b) => a - b);
+  $("#k-work").textContent = fmt(n); $("#t-results").textContent = fmt(results.length);
+  $("#k-fast").textContent = n ? fmtMs(lat[0]) : "-"; $("#k-med").textContent = n ? fmtMs(lat[Math.floor(n / 2)]) : "-";
+
+  const edges = [500, 1000, 2000, 3000, 4000, Infinity], labels = ["<0.5s", "<1s", "<2s", "<3s", "<4s", "4s+"], counts = edges.map(() => 0);
+  lat.forEach((v) => { counts[edges.findIndex((e) => v < e)]++; });
+  const max = Math.max(1, ...counts), hist = $("#hist"); hist.replaceChildren();
+  counts.forEach((c, i) => { const col = el("div"), bar = el("i"); bar.style.height = (c / max) * 70 + "%"; col.append(el("em", null, c ? fmt(c) : ""), bar, el("span", null, labels[i])); hist.append(col); });
+
+  legend("p", PROTOS, (r) => r.proto, PROTO_COLORS, view.protos, (k) => k.toUpperCase());
+  legend("a", ANON, (r) => r.anonymity, ANON_COLORS, view.anons, cap);
+
+  const cc = {}; rows().forEach((r) => { cc[r.country] = (cc[r.country] || 0) + 1; });
+  const top = Object.entries(cc).sort((a, b) => b[1] - a[1]).slice(0, 6), box = $("#ctry"); box.replaceChildren();
+  if (!top.length) box.append(el("div", "empty-note", "No data yet"));
+  top.forEach(([c, v]) => {
+    const b = el("button"); b.type = "button"; b.setAttribute("aria-pressed", String(view.country === c)); b.title = "Filter by " + c;
+    const row = el("div", "row"), track = el("div"), bar = el("i"); bar.style.width = (v / top[0][1]) * 100 + "%"; track.append(bar);
+    row.append(el("span", null, c), track, el("b", null, fmt(v))); b.append(row);
+    b.onclick = () => { view.country = view.country === c ? "" : c; $("#f-country").value = view.country; paintInsights(); scheduleTable(); }; box.append(b);
+  });
+}
+function legend(id, keys, get, colors, active, label) {
+  const tally = Object.fromEntries(keys.map((k) => [k, 0])); rows().forEach((r) => { tally[get(r)]++; });
+  const total = rows().length, split = $("#split-" + id), lg = $("#legend-" + id); split.replaceChildren(); lg.replaceChildren();
+  keys.forEach((k) => {
+    const seg = el("i"); seg.style.width = (total ? (tally[k] / total) * 100 : 0) + "%"; seg.style.background = colors[k]; split.append(seg);
+    const b = el("button"); b.type = "button"; b.setAttribute("aria-pressed", String(active.has(k)));
+    const it = el("div", "it"), lab = el("span", null, label(k)); lab.style.setProperty("--c", colors[k]); it.append(lab, el("b", null, fmt(tally[k]))); b.append(it);
+    b.onclick = () => { active.has(k) ? active.delete(k) : active.add(k); syncFilterChips(); paintInsights(); scheduleTable(); }; lg.append(b);
+  });
+}
+function chipSet(boxId, entries, set) {
+  const box = $(boxId); box.replaceChildren();
+  entries.forEach(([id, text]) => { const b = el("button", "chip", text); b.type = "button"; b.dataset.id = id; b.setAttribute("aria-pressed", "false");
+    b.onclick = () => { set.has(id) ? set.delete(id) : set.add(id); syncFilterChips(); paintInsights(); scheduleTable(); }; box.append(b); });
+}
+function syncFilterChips() {
+  $$("#f-proto .chip").forEach((b) => b.setAttribute("aria-pressed", String(view.protos.has(b.dataset.id))));
+  $$("#f-anon .chip").forEach((b) => b.setAttribute("aria-pressed", String(view.anons.has(b.dataset.id))));
+}
+
+/* ---------- export / save ---------- */
+async function exportRows(mode) { return exportUrls(viewList.map((x) => x.url), mode, $("#x-fmt").value); }
+async function exportUrls(urls, mode, fmtId) {
+  if (!urls.length) return toast("Nothing to export");
+  const r = await fetch("/api/export", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ urls, fmt: fmtId, template: S.save.template, user: S.save.user, pass: S.save.pass }) });
+  if (!r.ok) return toast((await r.json().catch(() => ({}))).error || "Export failed", 4000);
+  const text = await r.text();
+  if (mode === "copy") return copyText(text, `Copied ${fmt(urls.length)} proxies`);
+  const name = (r.headers.get("Content-Disposition") || "").match(/filename="(.+)"/)?.[1] || "proxies.txt";
+  const a = el("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" })); a.download = name; document.body.append(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+async function saveNow(visible, urls) {
+  try {
+    await flushSettings();
+    const r = await api("/api/save", visible ? { urls: urls || viewList.map((x) => x.url) } : {});
+    toast(`Saved ${r.files.length} file${r.files.length > 1 ? "s" : ""} to ${r.dir}`, 3500); loadFiles();
+  } catch (e) { toast(e.message, 4000); }
+}
+
+/* ---------- sources / custom list ---------- */
+function srcName(s) {
+  if (s.label) return s.label;
+  try { const u = new URL(s.url), parts = u.pathname.split("/").filter(Boolean);
+    return u.hostname === "raw.githubusercontent.com" ? `${parts[0]}/${parts[1]}` : u.hostname + "/" + (parts[0] || ""); } catch { return s.url; }
+}
+let srcSig = "";
+function paintSources() {
+  const list = (snap && snap.phase !== "idle" && !sourcesEdited) ? snap.sources : sources;
+  const sig = list.map((s) => s.kind + s.url).join("|") + activeNow;
+  const box = $("#srcs");
+  if (sig !== srcSig) {
+    srcSig = sig; box.replaceChildren();
+    const hd = el("div", "lrow hd src"); ["", "Source", "Found", "Working", "", ""].forEach((t, i) => { const c = el("span", i > 1 && i < 4 ? "num" : null, t); hd.append(c); }); box.append(hd);
+    const disabled = new Set(S.disabled_sources || []);
+    list.forEach((s) => {
+      const row = el("div", "lrow src"); row.dataset.url = s.url;
+      const editable = s.kind === "source";
+      const cb = el("input"); cb.type = "checkbox"; cb.checked = !disabled.has(s.url); cb.disabled = !editable || activeNow; cb.style.visibility = editable ? "" : "hidden";
+      cb.onchange = () => { const d = new Set(S.disabled_sources || []); cb.checked ? d.delete(s.url) : d.add(s.url); S.disabled_sources = [...d]; queueSave(); countSources(); };
+      const name = el("span", "name", srcName(s)); name.title = s.url; if (s.kind === "source") name.append(el("span", "tag", s.proto));
+      const x = el("button", "x", "×"); x.type = "button"; x.title = "Remove this source"; x.hidden = !editable || activeNow;
+      x.onclick = async () => { try { const r = await api("/api/sources/remove", { url: s.url }); sources = r.sources; sourcesEdited = true; srcSig = ""; paintSources(); countSources(); } catch (e) { toast(e.message); } };
+      row.append(cb, name, el("span", "num cnt"), el("span", "num wk"), el("span", "st"), x); box.append(row);
+    });
+  }
+  $$(".lrow.src[data-url]", box).forEach((row, i) => {
+    const s = list[i]; if (!s) return;
+    row.dataset.s = s.status; $(".cnt", row).textContent = s.count ? fmt(s.count) : s.status === "failed" ? "failed" : "";
+    const wk = $(".wk", row); wk.textContent = s.working ? fmt(s.working) : s.count ? "0" : ""; wk.classList.toggle("hi", s.working > 0);
+  });
+  countSources();
+}
+function countSources() {
+  const list = sourcesEdited || !snap || snap.phase === "idle" ? sources : snap.sources;
+  const real = list.filter((s) => s.kind === "source"), off = new Set(S.disabled_sources || []);
+  $("#t-sources").textContent = `${real.filter((s) => !off.has(s.url)).length}/${real.length}`;
+}
+async function loadCustom() { const r = await api("/api/custom", null, "GET"); $("#custom").value = r.text; $("#custom-n").textContent = r.count ? `${fmt(r.count)} proxies` : ""; }
+
+/* ---------- saved files / history ---------- */
+async function loadFiles() {
+  try {
+    const r = await api("/api/saves", null, "GET"); SAVE_DIR = r.dir; $("#files-dir").textContent = r.dir;
+    const box = $("#files"); box.replaceChildren();
+    if (!r.files.length) { box.append(el("div", "empty-note", "Nothing saved yet. Finish a scan or press Save to folder.")); return; }
+    const hd = el("div", "lrow hd files"); ["File", "Proxies", "Size", "Saved", ""].forEach((t, i) => hd.append(el("span", i === 2 || i === 3 ? "hide-s" : null, t))); box.append(hd);
+    r.files.forEach((f) => {
+      const row = el("div", "lrow files"); const dl = el("a", "btn small", "Download"); dl.href = "/api/saves/download?name=" + encodeURIComponent(f.name);
+      const rc = el("button", "btn small", "Re-check"); rc.type = "button"; rc.disabled = activeNow || !f.count;
+      rc.onclick = async () => { try { await flushSettings(); await api("/api/start", { file: f.name }); toast("Re-checking " + f.name); tab("results"); } catch (e) { toast(e.message, 4000); } };
+      const act = el("span", "acts"); act.append(rc, dl);
+      row.append(el("span", "mono name", f.name), el("span", "num", fmt(f.count)), el("span", "num hide-s", fmtBytes(f.size)), el("span", "num hide-s", fmtDate(f.mtime)), act);
+      row.firstChild.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap"; box.append(row);
+    });
+  } catch (e) { toast(e.message); }
+}
+async function loadHistory() {
+  try {
+    const { history } = await api("/api/history", null, "GET");
+    const agg = {};
+    history.forEach((h) => (h.sources || []).forEach((s) => { const a = (agg[s.label] ||= { found: 0, working: 0, runs: 0 }); a.found += s.found; a.working += s.working; a.runs++; }));
+    const short = (n) => (/^https?:/.test(n) ? srcName({ url: n }) : n);
+    const lb = $("#leader"); lb.replaceChildren();
+    const rows = Object.entries(agg).filter(([, a]) => a.found).sort((a, b) => b[1].working - a[1].working).slice(0, 12);
+    if (!rows.length) lb.append(el("div", "empty-note", "Run a scan to see which sources give the most working proxies."));
+    else {
+      const hd = el("div", "lrow hd leader"); ["Source", "Scans", "Found", "Working", "Yield"].forEach((t, i) => hd.append(el("span", i ? "num" : null, t))); lb.append(hd);
+      rows.forEach(([name, a]) => { const r = el("div", "lrow leader"); r.append(el("span", "name", short(name)), el("span", "num", a.runs), el("span", "num", fmt(a.found)), el("span", "num hi", fmt(a.working)), el("span", "num", ((a.working / a.found) * 100).toFixed(2) + "%"));
+        r.firstChild.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap"; lb.append(r); });
+    }
+    const hl = $("#hist-list"); hl.replaceChildren();
+    if (!history.length) hl.append(el("div", "empty-note", "No scans yet."));
+    history.forEach((h) => {
+      const d = el("details", "hcard"), s = el("summary");
+      s.append(el("span", "big", fmt(h.working) + " working"), el("span", "meta", fmtDate(h.ts)), el("span", "meta", fmtTime(h.duration)),
+        el("span", "meta", h.best_ms != null ? "best " + fmtMs(h.best_ms) : ""), el("span", "meta", Object.entries(h.by_proto || {}).filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join(" · ")),
+        el("span", "meta", Object.entries(h.by_anon || {}).filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join(" · ")), el("span", "meta", h.phase === "done" ? "" : h.phase));
+      d.append(s);
+      const body = el("div", "body"), tbl = el("div", "list");
+      const hd = el("div", "lrow hd leader"); ["Source", "", "Found", "Working", ""].forEach((t, i) => hd.append(el("span", i > 1 ? "num" : null, t))); tbl.append(hd);
+      (h.sources || []).filter((x) => x.found).sort((a, b) => b.working - a.working).forEach((x) => { const r = el("div", "lrow leader");
+        r.append(el("span", "name", short(x.label)), el("span"), el("span", "num", fmt(x.found)), el("span", "num hi", fmt(x.working)), el("span")); r.firstChild.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap"; tbl.append(r); });
+      body.append(tbl); d.append(body); hl.append(d);
+    });
+  } catch (e) { toast(e.message); }
+}
+
+/* ---------- import your own proxies ---------- */
+let impFiles = [];
+const IMP_PROXY = /(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?:\d{2,5}/g;
+const IMP_LINK = /^\s*https?:\/\/\S+\s*$/i, IMP_PROXYLINE = /^\s*https?:\/\/(?:[^/@\s]+@)?\d{1,3}(?:\.\d{1,3}){3}(?:\/\d{1,2})?:\d{1,5}\/?\s*$/i;
+function impPaintFiles() {
+  const box = $("#imp-files"); box.replaceChildren();
+  impFiles.forEach((f, i) => {
+    const chip = el("span", "imp-file"), x = el("button", null, "×"); x.type = "button"; x.title = "Remove " + f.name; x.setAttribute("aria-label", "Remove " + f.name);
+    x.onclick = () => { impFiles.splice(i, 1); impPaintFiles(); impCount(); };
+    chip.append(el("span", null, f.name + (f.n ? ` (${fmt(f.n)})` : "")), x); box.append(chip);
+  });
+}
+function impCount() {
+  const text = $("#imp-text").value, lines = text.split("\n");
+  const links = lines.filter((l) => IMP_LINK.test(l) && !IMP_PROXYLINE.test(l)).length;
+  const n = (text.match(IMP_PROXY) || []).length + impFiles.reduce((a, f) => a + f.n, 0);
+  const parts = [];
+  if (n) parts.push(`about ${fmt(n)} proxies`); if (links) parts.push(`${links} link${links > 1 ? "s" : ""} to download`);
+  if (impFiles.some((f) => !f.n)) parts.push("some files will be read as web pages or JSON");
+  $("#imp-count").textContent = parts.length ? "Found " + parts.join(", ") + ". Press Check these now." : "Nothing yet. Paste something above or load a file.";
+  const none = !text.trim() && !impFiles.length; $("#imp-go").disabled = none; $("#imp-save").disabled = none;
+}
+function impAddFiles(list) {
+  [...list].forEach((file) => {
+    if (file.size > 20_000_000) return toast(`${file.name} is over 20 MB. Split it first.`, 3500);
+    const rd = new FileReader();
+    rd.onload = () => { const text = String(rd.result); impFiles.push({ name: file.name, text, n: (text.match(IMP_PROXY) || []).length }); impPaintFiles(); impCount(); };
+    rd.readAsText(file);
+  });
+}
+async function impGo() {
+  try {
+    await flushSettings();
+    await api("/api/start", { import: { text: $("#imp-text").value, proto: $("#imp-proto").value, docs: impFiles.map((f) => ({ name: f.name, text: f.text })) } });
+    tab("results"); setDs("scan"); toast("Checking your list");
+  } catch (e) { toast(e.message, 4500); }
+}
+async function impSave() {
+  try {
+    const add = [$("#imp-text").value, ...impFiles.map((f) => f.text)].filter((t) => t.trim()).join("\n");
+    const cur = $("#custom").value, merged = (cur.trim() ? cur.replace(/\s+$/, "") + "\n" : "") + add;
+    const r = await api("/api/custom", { text: merged }); $("#custom").value = merged; $("#custom-n").textContent = r.count ? `${fmt(r.count)} proxies` : "";
+    toast(`Custom list now has ${fmt(r.count)} proxies. They are checked in every scan.`, 3500);
+  } catch (e) { toast(e.message, 4000); }
+}
+
+/* ---------- site check ---------- */
+const TG_TIPS = {
+  blocked: "This site rejects most proxy addresses (free proxies are well known). Try another proxy source, or a site that is friendlier to them.",
+  no_match: "The page opened but your required text was not on it, which usually means a block or captcha page.",
+  timeout: "Most proxies were too slow for this site. Try a longer timeout in Options.",
+  tls: "Many proxies break HTTPS certificates and are rejected on purpose.",
+  proxy_rejected: "Many proxies refuse to tunnel to this site.",
+};
+let tg = { id: null, rows: [], snap: null, timer: 0, show: 100, byUrl: new Map() };
+function tgCounts() {
+  const n = (poolSt && poolSt.count) || 0, m = results.length;
+  $("#tg-n-pool").textContent = n ? fmt(n) : "none yet"; $("#tg-n-scan").textContent = m ? fmt(m) : "none yet";
+  $$("#tg-src button").forEach((b) => { b.disabled = (b.dataset.src === "pool" && !n) || (b.dataset.src === "scan" && !m); });
+  const src = S.target.source, usable = (src === "pool" && n) || (src === "scan" && m) || src === "sources";
+  if (!usable) { S.target.source = n ? "pool" : m ? "scan" : "sources"; queueSave(); }
+  $$("#tg-src button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.src === S.target.source)));
+  const hint = { pool: `Proxies you already found and saved. The quickest way.`,
+    scan: `The working proxies from the current scan.`,
+    sources: `Downloads the public lists again and tests up to ${fmt(S.target.limit || 2000)} random proxies straight against your site. Slower, but can find new ones.` };
+  $("#tg-src-hint").textContent = hint[S.target.source];
+}
+function tgBusy() { return !!(tg.snap && ["prepare", "scan"].includes(tg.snap.phase)); }
+async function tgStart() {
+  const err = $("#tg-err"); err.hidden = true;
+  const url = $("#tg-url").value.trim();
+  if (!url) { err.textContent = "Type the website address first, for example example.com"; err.hidden = false; $("#tg-url").focus(); return; }
+  try {
+    await flushSettings();
+    const r = await api("/api/target/start", { ...S.target, url });
+    $("#tg-url").value = r.url; S.target.url = r.url;
+    tg = { id: r.id, rows: [], snap: { phase: "prepare", counts: { total: 0, checked: 0 }, fails: {} }, timer: 0, show: 100, byUrl: new Map() };
+    tgPaint(); tgPoll();
+  } catch (e) { err.textContent = e.message; err.hidden = false; }
+}
+async function tgPoll() {
+  clearTimeout(tg.timer);
+  try {
+    const d = await api(`/api/target/status?id=${tg.id || ""}&since=${tg.rows.length}`, null, "GET");
+    if (d.phase === "idle") { tg.snap = null; tgPaint(); return; }
+    if (tg.id !== d.id) { tg = { id: d.id, rows: [], snap: d, timer: 0, show: 100, byUrl: new Map() }; return tgPoll(); }
+    d.rows.forEach((r) => { ingest(r); tg.rows.push(r); tg.byUrl.set(r.url, r); lookupExtra.set(r.url, r); });
+    tg.snap = d; tgPaint();
+    if (["prepare", "scan"].includes(d.phase)) tg.timer = setTimeout(tgPoll, 700);
+  } catch { tg.timer = setTimeout(tgPoll, 2000); }
+}
+const lookupExtra = new Map();
+function tgPaint() {
+  const d = tg.snap, busy = tgBusy();
+  $("#tg-go").hidden = busy; $("#tg-stop").hidden = !busy; $("#tg-url").disabled = busy;
+  $("#tg-run").hidden = !d; $("#tg-res").hidden = !tg.rows.length; $("#tg-empty").hidden = !!d || !!tg.rows.length;
+  if (!d) { $("#tg-done").hidden = true; return; }
+  const c = d.counts, total = c.total || 0, pct = total ? (c.checked / total) * 100 : 0;
+  $("#tg-bar").style.width = (d.phase === "done" ? 100 : pct) + "%";
+  const host = (() => { try { return new URL(d.url || S.target.url).host; } catch { return "the site"; } })();
+  const stat = $("#tg-stat"); stat.replaceChildren();
+  if (d.phase === "prepare") stat.append(el("span", "muted", "Getting the proxies ready..."));
+  else {
+    stat.append("Checked ", el("b", null, `${fmt(c.checked)} of ${fmt(total)}`), " · ", el("b", null, fmt(tg.rows.length)), ` can open ${host}`,
+      el("span", "muted", ` · ${fmtTime(d.elapsed)}`));
+    if (c.skipped) stat.append(el("span", "muted", ` · ${fmt(c.skipped)} HTTP-only proxies skipped (they cannot open https:// sites)`));
+  }
+  tgFails(d);
+  const done = $("#tg-done"); done.hidden = busy || !d;
+  if (!busy) {
+    const n = tg.rows.length, top = Object.entries(d.fails || {}).sort((a, b) => b[1] - a[1])[0];
+    done.className = "tg-done " + (n ? "good" : "none");
+    done.textContent = d.phase === "error" ? `The check stopped: ${d.message}` :
+      n ? `${d.phase === "stopped" ? "Stopped. " : "Done. "}${fmt(n)} of ${fmt(total)} proxies can open ${host}. The fastest are at the top.` :
+      `${d.phase === "stopped" ? "Stopped. " : ""}No proxy could open ${host}. ${top && TG_TIPS[top[0]] ? TG_TIPS[top[0]] : "Try another proxy source or a longer timeout."}`;
+  }
+  tgRows();
+}
+function tgFails(d) {
+  const box = $("#tg-fails"), ent = Object.entries(d.fails || {}).sort((a, b) => b[1] - a[1]);
+  box.hidden = !ent.length; if (!ent.length) return;
+  box.replaceChildren(el("b", null, "Why proxies failed"));
+  ent.forEach(([k, n]) => { const m = FAIL[k] || { label: k, tip: "" }; const ch = el("span", "fchip"); ch.title = m.tip; ch.append(el("span", null, m.label), el("i", null, fmt(n))); box.append(ch); });
+}
+function tgRows() {
+  const rows = tg.rows.slice().sort((a, b) => a.latency_ms - b.latency_ms), shown = rows.slice(0, tg.show);
+  $("#tg-count").textContent = `${fmt(rows.length)} proxies can open the page`;
+  let html = "";
+  shown.forEach((x, i) => {
+    const color = x.latency_ms < 1500 ? "var(--good)" : x.latency_ms < 4000 ? "var(--warn)" : "var(--slow)", w = Math.max(4, 100 - Math.min(100, x.latency_ms / 80));
+    html += `<div class="vrow tg" data-url="${esc(x.url)}"><span class="rank">${i + 1}</span>` +
+      `<span><span class="proto ${x.proto}">${x.proto}</span><span class="mono">${esc(x.host)}:${x.port}</span>${x.has_auth ? `<span class="tag lock" title="This proxy uses a username and password. ProxyHive has them (the ones you pasted) and sends them automatically.">login ✓</span>` : ""}</span>` +
+      `<span class="lat"><span class="track"><i style="width:${w}%;background:${color}"></i></span><b style="color:${color}">${fmtMs(x.latency_ms)}</b></span>` +
+      `<span><span class="status-ok">${x.status || 200}</span></span><span><span class="cc">${esc(x.country || "??")}</span></span>` +
+      `<span class="acts"><button data-act="copy">Copy</button><button class="use" data-act="use">Use</button></span></div>`;
+  });
+  $("#tg-list").innerHTML = html;
+  const more = $("#tg-more"); more.hidden = rows.length <= tg.show; more.textContent = `Show ${Math.min(100, rows.length - tg.show)} more`;
+}
+function tgTopUrls(n) { return tg.rows.slice().sort((a, b) => a.latency_ms - b.latency_ms).slice(0, n).map((r) => r.url); }
+function tgOpen() {
+  tgCounts();
+  if (!$("#tg-url").value) $("#tg-url").value = S.target.url || "";
+  if (!tg.id) tgPoll();                 // pick up a check that is already running or finished
+}
+
+/* ---------- tabs ---------- */
+function tab(name) {
+  $$(".tab").forEach((t) => t.setAttribute("aria-selected", String(t.dataset.tab === name)));
+  $$("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== name));
+  store.set("tab", name);
+  if (name === "results") scheduleTable();
+  if (name === "files") loadFiles();
+  if (name === "history") loadHistory();
+  if (name === "sources") { srcSig = ""; paintSources(); }
+  if (name === "pool") { paintPoolTab(); }
+  if (name === "target") tgOpen();
+}
+
+/* ---------- events ---------- */
+function connect() {
+  const es = new EventSource("/api/events");
+  es.onmessage = (ev) => {
+    const d = JSON.parse(ev.data); snap = d;
+    if (d.reset) { results = []; byUrl = new Map(); sourcesEdited = false; srcSig = ""; lastJob = d.job; noticedJob = null; }
+    let changed = !!d.reset;
+    if (d.new && d.new.length) { d.new.forEach((r) => { ingest(r); results.push(r); byUrl.set(r.url, r); }); changed = true; }
+    if (d.job != null) lastJob = d.job;
+    paintLive();
+    if (changed) { paintInsights(); scheduleTable(); }
+  };
+  es.onerror = () => { $("#status").textContent = "Reconnecting to server..."; };
+}
+
+/* ---------- boot ---------- */
+/* inside the desktop app, links open in your normal browser instead of replacing the dashboard */
+document.addEventListener("click", (e) => {
+  const a = e.target.closest && e.target.closest("a[href]");
+  if (!a || !/^https?:/i.test(a.href) || new URL(a.href).origin === location.origin) return;
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.open_external) { e.preventDefault(); window.pywebview.api.open_external(a.href); }
+});
+
+(async function main() {
+  const init = await api("/api/init", null, "GET");
+  FAIL = init.fail_labels; poolSt = init.pool; geoSt = init.geo;
+  S = init.settings; PROTOS = init.protocols; PRESETS = init.presets; FORMATS = init.formats; SORTS = init.sorts; ANON = init.anon_levels;
+  $("#app-version").textContent = "v" + init.version;
+  IS_WIN = init.windows; SAVE_DIR = init.save_dir; sources = init.sources;
+  view.sortId = S.ui.sort;
+  buildSidebar();
+  $("#files-dir").textContent = SAVE_DIR;
+  chipSet("#f-proto", protoOpts(), view.protos); chipSet("#f-anon", anonOpts(), view.anons);
+  const sort = $("#f-sort"); Object.entries(SORTS).forEach(([k, t]) => sort.append(new Option(t, k))); sort.value = view.sortId;
+  sort.onchange = () => { view.sortId = sort.value; S.ui.sort = sort.value; queueSave(); $$("#vhead [aria-sort]").forEach((e) => e.removeAttribute("aria-sort")); scheduleTable(); };
+  const xf = $("#x-fmt"); Object.entries(FORMATS).forEach(([k, t]) => xf.append(new Option(t, k))); xf.value = store.get("xfmt", "url");
+  xf.onchange = () => store.set("xfmt", xf.value);
+  const sp = $("#src-proto"); [...PROTOS, "all"].forEach((p) => sp.append(new Option(p, p))); sp.value = "all";
+  ["#f-country", "#f-sort", "#x-fmt", "#src-proto"].forEach((id) => makeDropdown($(id)));
+  $("#custom").value = init.custom; loadCustom();
+  if ($("#cache-n")) $("#cache-n").textContent = fmt(init.cache_size) + " entries";
+
+  $$("#ds button").forEach((b) => (b.onclick = () => setDs(b.dataset.ds)));
+  $("#f-https").onclick = (e) => { view.https = !view.https; e.currentTarget.setAttribute("aria-pressed", String(view.https)); scheduleTable(); };
+  $("#pool-recheck").onclick = async () => { try { await api("/api/start", { pool: true }); tab("results"); setDs("scan"); toast("Re-checking the pool"); } catch (e) { toast(e.message, 4000); } };
+  $("#pool-refill").onclick = async () => { try { await flushSettings(); await api("/api/start"); tab("results"); setDs("scan"); } catch (e) { toast(e.message, 4000); } };
+  $("#pool-clear").onclick = async () => { if (!confirm("Remove every proxy from the saved pool?")) return; await api("/api/pool/clear"); toast("Pool emptied"); loadPool(); };
+  const ip = $("#imp-proto"); [["all", "Any type (tries HTTP, SOCKS4 and SOCKS5)"], ["http", "HTTP"], ["socks4", "SOCKS4"], ["socks5", "SOCKS5"]].forEach(([v, t]) => ip.append(new Option(t, v)));
+  makeDropdown(ip);
+  const it = $("#imp-text"); it.addEventListener("input", impCount);
+  ["dragenter", "dragover"].forEach((ev) => it.addEventListener(ev, (e) => { e.preventDefault(); it.classList.add("drag"); }));
+  ["dragleave", "drop"].forEach((ev) => it.addEventListener(ev, (e) => { e.preventDefault(); it.classList.remove("drag"); if (ev === "drop") impAddFiles(e.dataTransfer.files); }));
+  $("#imp-pick").onclick = () => $("#imp-file").click();
+  $("#imp-file").onchange = (e) => { impAddFiles(e.target.files); e.target.value = ""; };
+  $("#imp-go").onclick = impGo; $("#imp-save").onclick = impSave; impCount();
+  const tgBox = $("#tg-opts");
+  [{ k: "target.contains", t: "text", label: "Page must contain (optional)", ph: "e.g. Sign in", hint: "Catches block pages that still answer 200." },
+   { k: "target.expect", t: "select", label: "Count it as working when", opts: () => [["ok", "the page loads (any status below 400)"], ["200", "the status is exactly 200"]] },
+   { k: "target.timeout", t: "number", label: "Timeout per proxy (seconds)" },
+   { k: "target.concurrency", t: "number", label: "Parallel checks" },
+   { k: "target.limit", t: "number", label: "Max proxies to test", ph: "all", hint: "Blank = all (fresh sources: 2,000 random ones)." }].forEach((f) => tgBox.append(fieldEl(f)));
+  const tgf = $("#tg-fmt"); Object.entries(FORMATS).forEach(([k, t]) => tgf.append(new Option(t, k))); tgf.value = store.get("xfmt", "url"); makeDropdown(tgf);
+  $("#tg-form").onsubmit = (e) => { e.preventDefault(); tgStart(); };
+  $("#tg-stop").onclick = () => api("/api/target/stop");
+  $$("#tg-src button").forEach((b) => (b.onclick = () => { S.target.source = b.dataset.src; queueSave(); tgCounts(); }));
+  $("#tg-copy").onclick = () => exportUrls(tg.rows.map((r) => r.url), "copy", tgf.value);
+  $("#tg-dl").onclick = () => exportUrls(tg.rows.map((r) => r.url), "download", tgf.value);
+  $("#tg-save").onclick = () => saveNow(true, tg.rows.map((r) => r.url));
+  $("#tg-rotate").onclick = () => { const urls = tgTopUrls(Math.max(1, S.gateway.pool_size || 20)); urls.length ? useProxy(urls, true) : toast("No proxies yet"); };
+  $("#tg-more").onclick = () => { tg.show += 100; tgRows(); };
+  $("#tg-list").onclick = (e) => { const b = e.target.closest("button[data-act]"); if (!b) return; const url = b.closest(".vrow").dataset.url;
+    if (b.dataset.act === "copy") copyText(url, "Copied " + url); else useProxy([url], false); };
+  $("#guide-btn").onclick = () => { tab("guide"); $(".tabs").scrollIntoView({ behavior: "smooth", block: "start" }); };
+  $("#api-copy").onclick = () => copyText($("#api-ex").textContent, "Copied the API examples");
+  $("#go").onclick = async () => { try { await flushSettings(); await api("/api/start"); } catch (e) { toast(e.message, 4000); } };
+  $("#halt").onclick = () => api("/api/stop");
+  $("#q").oninput = (e) => { view.q = e.target.value; scheduleTable(); };
+  $("#f-country").onchange = (e) => { view.country = e.target.value; paintInsights(); scheduleTable(); };
+  $("#x-copy").onclick = () => exportRows("copy"); $("#x-dl").onclick = () => exportRows("download"); $("#x-save").onclick = () => saveNow(true);
+  $("#x-rotate").onclick = rotateTop;
+  $("#gw-test").onclick = testGateway; $("#gw-off").onclick = async () => { await api("/api/gateway/stop"); $("#gw-res").textContent = ""; toast("Disconnected"); };
+  $("#files-refresh").onclick = loadFiles;
+  $("#vt").addEventListener("scroll", () => { if (!scrollTimer) scrollTimer = setTimeout(() => { scrollTimer = 0; renderWindow(); }, 16); }, { passive: true });
+  $("#vt-win").onclick = (e) => {
+    const b = e.target.closest("button[data-act]"); if (!b) return; const url = b.closest(".vrow").dataset.url;
+    if (b.dataset.act === "copy") copyText(url, "Copied " + url);
+    else if (gwState && gwState.running && gwState.current === url) api("/api/gateway/stop").then(() => toast("Disconnected"));
+    else useProxy([url], false);
+  };
+  $$("#vhead [data-k]").forEach((c) => { c.querySelector("button").onclick = () => {
+    const k = c.dataset.k, cur = view.sortId === "custom" && view.custom && view.custom[0] === k ? view.custom[1] : null;
+    view.custom = [k, cur === 1 ? -1 : (k === "speed_mbps" && cur === null ? -1 : 1)]; view.sortId = "custom";
+    $$("#vhead [aria-sort]").forEach((e) => e.removeAttribute("aria-sort")); c.setAttribute("aria-sort", view.custom[1] === 1 ? "ascending" : "descending");
+    if (![...sort.options].some((o) => o.value === "custom")) sort.append(new Option("Custom (column)", "custom")); sort.value = "custom"; scheduleTable(); }; });
+  $$(".tab").forEach((t) => (t.onclick = () => tab(t.dataset.tab)));
+  $("#src-form").onsubmit = async (e) => { e.preventDefault(); try { const r = await api("/api/sources/add", { proto: $("#src-proto").value, url: $("#src-url").value }); sources = r.sources; sourcesEdited = true; srcSig = ""; $("#src-url").value = ""; paintSources(); toast("Source added"); } catch (err) { toast(err.message, 4000); } };
+  $("#custom-save").onclick = async () => { try { const r = await api("/api/custom", { text: $("#custom").value }); $("#custom-n").textContent = r.count ? `${fmt(r.count)} proxies` : ""; toast(`Saved custom list (${fmt(r.count)} proxies)`); } catch (err) { toast(err.message); } };
+
+  setInterval(() => { const pill = $("#auto-pill"); if (nextAuto && !activeNow) { pill.hidden = false; $("#auto-txt").textContent = "Next " + nextWhat + " in " + fmtTime(nextAuto - Date.now() / 1000); } else pill.hidden = true; }, 1000);
+  setInterval(() => { if (view.ds === "pool" && !document.hidden) loadPool(); }, 8000);
+  if (poolSt && poolSt.count) setDs(store.get("ds", "pool")); else setDs("scan");
+  paintPoolTab(); paintSources(); paintInsights(); renderTable(); tab(store.get("tab", "results")); connect();
+})().catch((e) => { document.body.prepend(Object.assign(el("div", "notice", "Could not start the dashboard: " + e.message), {})); });
+</script>
+</body>
+</html>

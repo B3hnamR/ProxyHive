@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="ProxyHive">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b1220"/><stop offset="1" stop-color="#070a12"/></linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5eead4"/><stop offset="0.55" stop-color="#38bdf8"/><stop offset="1" stop-color="#7c9cff"/></linearGradient>
+    <radialGradient id="glow" cx="0.14" cy="0.4" r="0.55"><stop offset="0" stop-color="#5eead4" stop-opacity="0.22"/><stop offset="1" stop-color="#5eead4" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glow2" cx="0.92" cy="0.1" r="0.5"><stop offset="0" stop-color="#7c9cff" stop-opacity="0.2"/><stop offset="1" stop-color="#7c9cff" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#ffffff" stroke-opacity="0.035"/></pattern>
+  </defs>
+  <rect width="1280" height="320" rx="22" fill="url(#bg)"/>
+  <rect width="1280" height="320" rx="22" fill="url(#grid)"/>
+  <rect width="1280" height="320" rx="22" fill="url(#glow)"/>
+  <rect width="1280" height="320" rx="22" fill="url(#glow2)"/>
+  <rect x="0.5" y="0.5" width="1279" height="319" rx="21.5" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+  <g transform="translate(40 40)">
+    <polygon points="169.4,95.0 140.0,112.0 110.6,95.0 110.6,61.0 140.0,44.0 169.4,61.0" fill="#5eead4" fill-opacity="0.18" stroke="#5eead4" stroke-width="3" stroke-linejoin="round"/>
+    <polygon points="137.0,158.0 107.6,175.0 78.1,158.0 78.1,124.0 107.6,107.0 137.0,124.0" fill="#38bdf8" fill-opacity="0.18" stroke="#38bdf8" stroke-width="3" stroke-linejoin="round"/>
+    <polygon points="201.9,158.0 172.4,175.0 143.0,158.0 143.0,124.0 172.4,107.0 201.9,124.0" fill="#7c9cff" fill-opacity="0.18" stroke="#7c9cff" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="140.0" cy="78.0" r="7" fill="#5eead4"/>
+    <circle cx="107.6" cy="141.0" r="7" fill="#38bdf8"/>
+    <circle cx="172.4" cy="141.0" r="7" fill="#7c9cff"/>
+  </g>
+  <text x="330" y="150" font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif" font-size="92" font-weight="800" fill="url(#title)" letter-spacing="-2">ProxyHive</text>
+  <text x="334" y="204" font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif" font-size="29" fill="#cbd5e1">Find proxies. Prove they work. Use the best one.</text>
+  <g font-family="'Segoe UI', 'Inter', Arial, sans-serif" font-size="17" fill="#94a3b8">
+    <rect x="334" y="230" width="132" height="34" rx="17" fill="#5eead4" fill-opacity="0.1" stroke="#5eead4" stroke-opacity="0.45"/><text x="400" y="253" text-anchor="middle" fill="#5eead4">Scrape</text>
+    <rect x="478" y="230" width="132" height="34" rx="17" fill="#38bdf8" fill-opacity="0.1" stroke="#38bdf8" stroke-opacity="0.45"/><text x="544" y="253" text-anchor="middle" fill="#38bdf8">Verify</text>
+    <rect x="622" y="230" width="132" height="34" rx="17" fill="#7c9cff" fill-opacity="0.1" stroke="#7c9cff" stroke-opacity="0.45"/><text x="688" y="253" text-anchor="middle" fill="#7c9cff">Pool</text>
+    <rect x="766" y="230" width="132" height="34" rx="17" fill="#5eead4" fill-opacity="0.1" stroke="#5eead4" stroke-opacity="0.45"/><text x="832" y="253" text-anchor="middle" fill="#5eead4">Route</text>
+  </g>
+  <text x="1240" y="292" text-anchor="end" font-family="'Segoe UI', Arial, sans-serif" font-size="16" fill="#64748b">v1.0.0  ·  by B3hnamR</text>
+</svg>

@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "proxyhive"
+dynamic = ["version"]
+description = "Find, test and use proxies: scraper, checker, local gateway and desktop dashboard."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "B3hnamR" }]
+dependencies = [
+    "aiohttp>=3.9",
+    "aiohttp-socks>=0.9",
+    "maxminddb>=2.0",
+    "rich>=13",
+    "pywebview>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/B3hnamR"
+Telegram = "https://t.me/B3hnamR"
+
+[project.scripts]
+proxyhive = "proxyhive.cli:main"
+
+[tool.setuptools]
+packages = ["proxyhive"]
+
+[tool.setuptools.dynamic]
+version = { attr = "proxyhive.__version__" }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 140
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E9", "F", "I"]
